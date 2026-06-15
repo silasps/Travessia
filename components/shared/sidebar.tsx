@@ -12,6 +12,8 @@ import {
   LogOut,
   ChevronRight,
   Bell,
+  UserCog,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,7 +23,7 @@ import type { StaffRole } from "@/lib/rbac";
 import {
   canVerRelatorios,
   canGerenciarUsuarios,
-  canVerPIA,
+  canPublicarDocumentos,
 } from "@/lib/rbac";
 
 interface NavItem {
@@ -35,11 +37,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/painel", label: "Início", icon: Home },
   { href: "/painel/residentes", label: "Acolhidos", icon: Users },
-  {
-    href: "/painel/ocorrencias",
-    label: "Ocorrências",
-    icon: AlertTriangle,
-  },
+  { href: "/painel/ocorrencias", label: "Ocorrências", icon: AlertTriangle },
   {
     href: "/painel/relatorios",
     label: "Relatórios",
@@ -47,10 +45,22 @@ const NAV_ITEMS: NavItem[] = [
     requireRole: canVerRelatorios,
   },
   {
+    href: "/painel/usuarios",
+    label: "Usuários",
+    icon: UserCog,
+    requireRole: canGerenciarUsuarios,
+  },
+  {
     href: "/painel/configuracoes",
     label: "Configurações",
     icon: Settings,
     requireRole: canGerenciarUsuarios,
+  },
+  {
+    href: "/painel/transparencia",
+    label: "Transparência",
+    icon: FolderOpen,
+    requireRole: canPublicarDocumentos,
   },
 ];
 

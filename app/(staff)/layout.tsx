@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { SidebarContent } from "@/components/shared/sidebar";
 import { StaffBottomNav } from "@/components/shared/staff-bottom-nav";
 import { NotificationBell } from "@/components/shared/notification-bell";
+import { RolePreviewBanner } from "@/components/shared/role-preview-banner";
+import { RolePreviewSelector } from "@/components/shared/role-preview-selector";
 import type { StaffRole } from "@/lib/rbac";
+import { isKnownRole } from "@/lib/rbac";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
@@ -63,13 +67,23 @@ export default async function StaffLayout({
     .eq("user_id", user.id)
     .single();
 
-  const role = (roleRow?.role ?? null) as StaffRole | null;
+  const realRole = (roleRow?.role ?? null) as StaffRole | null;
   const userName = (profile as { full_name?: string } | null)?.full_name ?? user.email ?? "Usuário";
+
+  // Lê o cookie de preview (só válido para super_admin)
+  const cookieStore = await cookies();
+  const previewCookie = cookieStore.get("pt_preview_role")?.value ?? null;
+  const previewRole =
+    realRole === "super_admin" && previewCookie && isKnownRole(previewCookie)
+      ? (previewCookie as StaffRole)
+      : null;
+
+  const effectiveRole = previewRole ?? realRole;
 
   return (
     <div className="min-h-screen flex">
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-border bg-background z-30">
-        <SidebarContent role={role} userName={userName} />
+        <SidebarContent role={effectiveRole} userName={userName} />
       </aside>
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
         <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex items-center gap-3">
@@ -79,15 +93,21 @@ export default async function StaffLayout({
             </div>
             <p className="text-sm font-semibold text-foreground">Projeto Travessia</p>
           </div>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {realRole === "super_admin" && (
+              <RolePreviewSelector currentPreview={previewRole} />
+            )}
             <NotificationBell userId={user.id} />
           </div>
         </header>
+
+        {previewRole && <RolePreviewBanner previewRole={previewRole} />}
+
         <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full pb-20 lg:pb-6">
           {children}
         </main>
       </div>
-      <StaffBottomNav role={role} />
+      <StaffBottomNav role={effectiveRole} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
-import { FileText, Download, Calendar, FolderOpen } from "lucide-react";
+import { FileText, Download, Calendar, Folder, FolderOpen } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import type { DocumentoPublico } from "@/types/database";
 
@@ -13,29 +13,48 @@ export const metadata: Metadata = {
 export const revalidate = 3600;
 
 const CATEGORIA_CONFIG: Record<string, { label: string; order: number }> = {
-  estatuto:             { label: "Estatuto e Regimento",        order: 1 },
-  regimento:            { label: "Estatuto e Regimento",        order: 1 },
-  ata:                  { label: "Atas",                        order: 2 },
-  contrato_parceria:    { label: "Termos de Colaboração e Convênios", order: 3 },
-  plano_trabalho:       { label: "Planos de Trabalho",          order: 4 },
-  relatorio_atividades: { label: "Relatórios de Atividades",   order: 5 },
-  prestacao_contas:     { label: "Prestação de Contas",         order: 6 },
-  balancete:            { label: "Balancetes e Demonstrativos", order: 7 },
-  outros:               { label: "Outros Documentos",           order: 8 },
+  estatuto:             { label: "Estatuto Social",                   order: 1 },
+  regimento:            { label: "Regimentos e Regulamentos",          order: 2 },
+  ata:                  { label: "Atas",                               order: 3 },
+  contrato_parceria:    { label: "Termos de Colaboração e Convênios",  order: 4 },
+  plano_trabalho:       { label: "Planos de Trabalho",                 order: 5 },
+  relatorio_atividades: { label: "Relatórios de Atividades",          order: 6 },
+  prestacao_contas:     { label: "Prestação de Contas",                order: 7 },
+  balancete:            { label: "Balancetes e Demonstrativos",        order: 8 },
+  outros:               { label: "Outros Documentos",                  order: 9 },
 };
-
-function categoriaLabel(cat: string) {
-  return CATEGORIA_CONFIG[cat]?.label ?? "Outros Documentos";
-}
-
-function categoriaOrder(cat: string) {
-  return CATEGORIA_CONFIG[cat]?.order ?? 99;
-}
 
 function formatBytes(kb: number | null) {
   if (!kb) return null;
   if (kb < 1024) return `${kb} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function getFileExtension(url: string) {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.split(".").pop()?.toUpperCase();
+    return ext && ext.length <= 4 ? ext : null;
+  } catch {
+    return null;
+  }
+}
+
+function ExtBadge({ url }: { url: string }) {
+  const ext = getFileExtension(url);
+  if (!ext) return null;
+  const colors: Record<string, string> = {
+    PDF: "bg-red-50 text-red-600",
+    DOC: "bg-blue-50 text-blue-600",
+    DOCX: "bg-blue-50 text-blue-600",
+    XLS: "bg-green-50 text-green-600",
+    XLSX: "bg-green-50 text-green-600",
+  };
+  return (
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${colors[ext] ?? "bg-gray-100 text-gray-500"}`}>
+      {ext}
+    </span>
+  );
 }
 
 export default async function TransparenciaPage() {
@@ -45,22 +64,19 @@ export default async function TransparenciaPage() {
     .from("documentos_publicos")
     .select("*")
     .eq("publicado", true)
-    .order("publicado_em", { ascending: false });
+    .order("competencia", { ascending: false });
 
   const documentos: DocumentoPublico[] = docs ?? [];
 
-  // Agrupa por label de categoria (algumas categorias compartilham label)
-  const grupos = new Map<string, { order: number; docs: DocumentoPublico[] }>();
+  const grupos = new Map<string, { order: number; label: string; docs: DocumentoPublico[] }>();
   for (const doc of documentos) {
-    const label = categoriaLabel(doc.categoria);
-    const order = categoriaOrder(doc.categoria);
-    if (!grupos.has(label)) grupos.set(label, { order, docs: [] });
-    grupos.get(label)!.docs.push(doc);
+    const cfg = CATEGORIA_CONFIG[doc.categoria] ?? { label: "Outros Documentos", order: 99 };
+    if (!grupos.has(doc.categoria)) {
+      grupos.set(doc.categoria, { order: cfg.order, label: cfg.label, docs: [] });
+    }
+    grupos.get(doc.categoria)!.docs.push(doc);
   }
-
-  const gruposOrdenados = [...grupos.entries()].sort(
-    (a, b) => a[1].order - b[1].order
-  );
+  const gruposOrdenados = [...grupos.entries()].sort((a, b) => a[1].order - b[1].order);
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-12 space-y-10">
@@ -75,11 +91,13 @@ export default async function TransparenciaPage() {
           à Informação (Lei 12.527/2011).
         </p>
         <p className="text-xs text-gray-400">
-          Última atualização: {documentos.length > 0 ? formatDate(documentos[0].publicado_em ?? documentos[0].created_at) : "—"}
+          Última atualização:{" "}
+          {documentos.length > 0
+            ? formatDate(documentos[0].publicado_em ?? documentos[0].created_at)
+            : "—"}
         </p>
       </div>
 
-      {/* Conteúdo */}
       {error ? (
         <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-center space-y-2">
           <p className="font-medium text-red-800">Não foi possível carregar os documentos.</p>
@@ -94,62 +112,80 @@ export default async function TransparenciaPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-10">
-          {gruposOrdenados.map(([label, { docs: grupoDocs }]) => (
-            <section key={label} className="space-y-4">
-              <div className="flex items-center gap-3">
-                <h2 className="text-base font-bold text-gray-900">{label}</h2>
-                <span className="text-xs bg-blue-100 text-blue-700 font-medium px-2 py-0.5 rounded-full">
-                  {grupoDocs.length} {grupoDocs.length === 1 ? "documento" : "documentos"}
-                </span>
-              </div>
+        /* Estrutura de pastas */
+        <div className="border border-gray-200 rounded-2xl overflow-hidden bg-white">
+          {/* Cabeçalho estilo explorador */}
+          <div className="flex items-center gap-2 px-4 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <Folder className="size-3.5" />
+            <span>Pasta</span>
+            <span className="ml-auto">Arquivos</span>
+          </div>
 
-              <div className="space-y-2">
-                {grupoDocs.map((doc) => (
-                  <a
-                    key={doc.id}
-                    href={doc.arquivo_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-start gap-4 bg-white rounded-2xl border border-gray-100 p-4 hover:border-blue-200 hover:shadow-sm transition-all group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                      <FileText className="size-5 text-blue-600" />
-                    </div>
+          <div className="divide-y divide-gray-100">
+            {gruposOrdenados.map(([cat, { label, docs: grupoDocs }], idx) => (
+              <details
+                key={cat}
+                className="group"
+                open={idx === 0}
+              >
+                {/* Cabeçalho da pasta */}
+                <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none select-none">
+                  <span className="transition-transform group-open:rotate-90 text-gray-400 text-xs">▶</span>
+                  <Folder className="size-4 text-blue-500 group-open:hidden flex-shrink-0" />
+                  <FolderOpen className="size-4 text-blue-500 hidden group-open:block flex-shrink-0" />
+                  <span className="flex-1 font-semibold text-sm text-gray-800">{label}</span>
+                  <span className="text-xs text-gray-400 tabular-nums">
+                    {grupoDocs.length} {grupoDocs.length === 1 ? "arquivo" : "arquivos"}
+                  </span>
+                </summary>
 
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 group-hover:text-blue-700 transition-colors leading-snug">
-                        {doc.titulo}
-                      </p>
-                      {doc.descricao && (
-                        <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
-                          {doc.descricao}
+                {/* Arquivos dentro da pasta */}
+                <div className="bg-gray-50/50 border-t border-gray-100">
+                  {grupoDocs.map((doc, docIdx) => (
+                    <a
+                      key={doc.id}
+                      href={doc.arquivo_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`flex items-center gap-3 pl-10 pr-4 py-3 hover:bg-blue-50 transition-colors group/item ${
+                        docIdx < grupoDocs.length - 1 ? "border-b border-gray-100" : ""
+                      }`}
+                    >
+                      <FileText className="size-4 text-gray-400 group-hover/item:text-blue-500 flex-shrink-0 transition-colors" />
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 group-hover/item:text-blue-700 transition-colors leading-snug">
+                          {doc.titulo}
                         </p>
-                      )}
-                      <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-gray-400">
-                        {doc.competencia && (
-                          <span className="flex items-center gap-1">
-                            <Calendar className="size-3" />
-                            {doc.competencia}
-                          </span>
+                        {doc.descricao && (
+                          <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-1">
+                            {doc.descricao}
+                          </p>
                         )}
-                        {doc.publicado_em && (
-                          <span>Publicado em {formatDate(doc.publicado_em)}</span>
-                        )}
-                        {doc.tamanho_kb && (
-                          <span>{formatBytes(doc.tamanho_kb)}</span>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-gray-400">
+                          {doc.competencia && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="size-3" />
+                              {doc.competencia}
+                            </span>
+                          )}
+                          {doc.publicado_em && (
+                            <span>Publicado em {formatDate(doc.publicado_em)}</span>
+                          )}
+                          {doc.tamanho_kb && <span>{formatBytes(doc.tamanho_kb)}</span>}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Download className="size-4 text-blue-600" />
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </section>
-          ))}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <ExtBadge url={doc.arquivo_url} />
+                        <Download className="size-4 text-gray-300 group-hover/item:text-blue-500 transition-colors" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
         </div>
       )}
 
@@ -163,11 +199,8 @@ export default async function TransparenciaPage() {
           </a>
         </p>
         <p>
-          Solicitações de acesso à informação podem ser feitas através do{" "}
-          <a href="https://www.prefeitura.sp.gov.br/cidade/secretarias/governo/transparencia/" className="underline hover:text-gray-600">
-            sistema e-SIC do município
-          </a>
-          .
+          Solicitações de acesso à informação podem ser feitas diretamente à nossa equipe
+          de coordenação.
         </p>
       </div>
     </div>
