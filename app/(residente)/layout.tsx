@@ -1,9 +1,24 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Home, User, TrendingUp, FileText, LogOut } from "lucide-react";
+import { Home, User, TrendingUp, FileText, LogOut, X } from "lucide-react";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
+
+function PreviewBanner() {
+  return (
+    <div className="bg-amber-400 text-amber-950 text-sm font-medium flex items-center justify-between px-4 py-2">
+      <span>Modo de visualização — <strong>Acolhido</strong></span>
+      <a
+        href="/painel"
+        className="flex items-center gap-1 text-xs font-semibold hover:underline opacity-80 hover:opacity-100"
+      >
+        <X className="size-3.5" />
+        Voltar ao painel
+      </a>
+    </div>
+  );
+}
 
 const NAV_ITEMS = [
   { href: "/meu-espaco", label: "Início", icon: Home },
@@ -17,6 +32,8 @@ export default async function ResidenteLayout({
 }: {
   children: React.ReactNode;
 }) {
+  let isSuperAdminPreview = DEV_MODE;
+
   if (!DEV_MODE) {
     const supabase = await createClient();
     const {
@@ -25,17 +42,29 @@ export default async function ResidenteLayout({
 
     if (!user) redirect("/login");
 
-    const { data: portal } = await supabase
-      .from("residente_portals")
-      .select("residente_id, is_active")
+    // Super admin pode acessar /meu-espaco para preview sem portal de residente
+    const { data: roleRow } = await supabase
+      .from("staff_roles")
+      .select("role")
       .eq("user_id", user.id)
       .single();
 
-    if (!portal?.is_active) redirect("/login");
+    if (roleRow?.role === "super_admin") {
+      isSuperAdminPreview = true;
+    } else {
+      const { data: portal } = await supabase
+        .from("residente_portals")
+        .select("residente_id, is_active")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!portal?.is_active) redirect("/login");
+    }
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
+      {isSuperAdminPreview && <PreviewBanner />}
       {/* Header */}
       <header className="bg-blue-800 text-white px-4 py-4 sticky top-0 z-20">
         <div className="max-w-lg mx-auto flex items-center gap-3">

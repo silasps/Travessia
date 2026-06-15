@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { setPreviewRole, clearPreviewRole } from "@/lib/actions/preview-role";
-import { Eye, ChevronDown } from "lucide-react";
+import { Eye, ChevronDown, ExternalLink } from "lucide-react";
 import type { StaffRole } from "@/lib/rbac";
 import { ROLE_LABELS } from "@/lib/rbac";
 import {
@@ -52,7 +52,7 @@ export function RolePreviewSelector({
         <ChevronDown className="size-3" />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuLabel className="text-xs text-gray-500">Simular visão de:</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {ROLES.map((role) => (
@@ -66,6 +66,13 @@ export function RolePreviewSelector({
             {ROLE_LABELS[role]}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuItem
+          onClick={() => window.open("/meu-espaco", "_blank")}
+          className="text-sm cursor-pointer text-gray-700"
+        >
+          <span className="flex-1">Acolhido</span>
+          <ExternalLink className="size-3 text-gray-400" />
+        </DropdownMenuItem>
         {currentPreview && (
           <>
             <DropdownMenuSeparator />
