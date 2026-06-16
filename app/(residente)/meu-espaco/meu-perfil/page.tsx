@@ -1,15 +1,86 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { User, Shield } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { resolveResidenteAcesso } from "@/lib/residente-preview";
 import { getMockResidente } from "@/lib/mock-data";
 import { formatDate, maskCPF } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Meu Perfil" };
 
-export default async function MeuPerfilPage() {
-  // Em produção: buscar via portal do residente autenticado
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
+
+interface PerfilData {
+  nomeCompleto: string;
+  nomeSocial: string | null;
+  cpf: string | null;
+  dataNascimento: string | null;
+  naturalidade: string | null;
+  numeroProntuario: string;
+  dataEntrada: string;
+  faseAtual: number;
+  fotoUrl: string | null;
+  lgpdConsentAt: string | null;
+}
+
+function fromMock(): PerfilData {
   const r = getMockResidente("r01")!;
-  const nomeExibido = r.nome_social ?? r.nome_completo;
+  return {
+    nomeCompleto: r.nome_completo,
+    nomeSocial: r.nome_social,
+    cpf: r.cpf,
+    dataNascimento: r.data_nascimento,
+    naturalidade: r.naturalidade,
+    numeroProntuario: r.numero_prontuario,
+    dataEntrada: r.data_entrada,
+    faseAtual: r.fase_atual,
+    fotoUrl: r.foto_url,
+    lgpdConsentAt: r.lgpd_consent_at,
+  };
+}
+
+export default async function MeuPerfilPage() {
+  let perfil: PerfilData;
+
+  if (DEV_MODE) {
+    perfil = fromMock();
+  } else {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+
+    const acesso = await resolveResidenteAcesso(supabase, user.id);
+    if (!acesso) redirect("/login");
+
+    if (!acesso.residenteId) {
+      perfil = fromMock();
+    } else {
+      const { data: r } = await supabase
+        .from("residentes")
+        .select(
+          "nome_completo, nome_social, cpf, data_nascimento, naturalidade, numero_prontuario, data_entrada, fase_atual, foto_url, lgpd_consent_at"
+        )
+        .eq("id", acesso.residenteId)
+        .single();
+      if (!r) redirect("/login");
+
+      perfil = {
+        nomeCompleto: r.nome_completo,
+        nomeSocial: r.nome_social,
+        cpf: r.cpf,
+        dataNascimento: r.data_nascimento,
+        naturalidade: r.naturalidade,
+        numeroProntuario: r.numero_prontuario,
+        dataEntrada: r.data_entrada,
+        faseAtual: r.fase_atual,
+        fotoUrl: r.foto_url,
+        lgpdConsentAt: r.lgpd_consent_at,
+      };
+    }
+  }
+
+  const nomeExibido = perfil.nomeSocial ?? perfil.nomeCompleto;
 
   return (
     <div className="space-y-5">
@@ -21,9 +92,9 @@ export default async function MeuPerfilPage() {
       {/* Avatar */}
       <div className="flex flex-col items-center py-4">
         <div className="size-24 rounded-full bg-blue-100 flex items-center justify-center">
-          {r.foto_url ? (
+          {perfil.fotoUrl ? (
             <Image
-              src={r.foto_url}
+              src={perfil.fotoUrl}
               alt={nomeExibido}
               width={96}
               height={96}
@@ -35,31 +106,31 @@ export default async function MeuPerfilPage() {
           )}
         </div>
         <p className="text-xl font-bold text-gray-900 mt-3">{nomeExibido}</p>
-        <p className="text-sm text-muted-foreground">{r.numero_prontuario}</p>
+        <p className="text-sm text-muted-foreground">{perfil.numeroProntuario}</p>
       </div>
 
       {/* Dados pessoais */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
         <h2 className="font-semibold text-gray-900">Identificação</h2>
 
-        {r.nome_social && (
-          <InfoRow label="Nome completo" value={r.nome_completo} />
+        {perfil.nomeSocial && (
+          <InfoRow label="Nome completo" value={perfil.nomeCompleto} />
         )}
-        <InfoRow label="Nome social" value={r.nome_social ?? "—"} />
+        <InfoRow label="Nome social" value={perfil.nomeSocial ?? "—"} />
         <InfoRow
           label="CPF"
-          value={r.cpf ? maskCPF(r.cpf) : "Não informado"}
+          value={perfil.cpf ? maskCPF(perfil.cpf) : "Não informado"}
         />
-        <InfoRow label="Data de nascimento" value={r.data_nascimento ? formatDate(r.data_nascimento) : "—"} />
-        <InfoRow label="Naturalidade" value={r.naturalidade ?? "—"} />
+        <InfoRow label="Data de nascimento" value={perfil.dataNascimento ? formatDate(perfil.dataNascimento) : "—"} />
+        <InfoRow label="Naturalidade" value={perfil.naturalidade ?? "—"} />
       </div>
 
       {/* Situação no programa */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
         <h2 className="font-semibold text-gray-900">Situação no programa</h2>
-        <InfoRow label="Prontuário" value={r.numero_prontuario} />
-        <InfoRow label="Data de entrada" value={formatDate(r.data_entrada)} />
-        <InfoRow label="Fase atual" value={`Fase ${r.fase_atual}`} />
+        <InfoRow label="Prontuário" value={perfil.numeroProntuario} />
+        <InfoRow label="Data de entrada" value={formatDate(perfil.dataEntrada)} />
+        <InfoRow label="Fase atual" value={`Fase ${perfil.faseAtual}`} />
       </div>
 
       {/* Privacidade */}
@@ -71,9 +142,9 @@ export default async function MeuPerfilPage() {
         <p className="text-sm text-blue-800">
           Suas informações são guardadas com segurança e usadas apenas para seu acompanhamento social. Você tem direito de pedir acesso, correção ou exclusão dos seus dados a qualquer momento.
         </p>
-        {r.lgpd_consent_at && (
+        {perfil.lgpdConsentAt && (
           <p className="text-xs text-blue-700 mt-1">
-            Consentimento registrado em {formatDate(r.lgpd_consent_at)}
+            Consentimento registrado em {formatDate(perfil.lgpdConsentAt)}
           </p>
         )}
       </div>

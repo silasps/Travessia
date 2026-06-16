@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { UserPlus, Users, Search, X, ClipboardList } from "lucide-react";
+import { UserPlus, Users, X, ClipboardList } from "lucide-react";
 import { getMockResidentes, MOCK_STATS, MOCK_PIAS } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/server";
 import type { Residente, ResidenteStatus } from "@/types/database";
@@ -8,6 +8,7 @@ import { StatusBadge, FaseBadge } from "@/components/residentes/status-badge";
 import { formatDate, formatTempoNoPrograma, maskCPF } from "@/lib/utils/format";
 import { ResidenteRow } from "@/components/residentes/residente-row";
 import { AutoSubmitSelect } from "@/components/residentes/auto-submit-select";
+import { BuscaInput } from "@/components/residentes/busca-input";
 
 export const metadata: Metadata = { title: "Acolhidos" };
 
@@ -138,15 +139,7 @@ export default async function ResidentesPage({
       <form method="GET" className="flex flex-col sm:flex-row gap-2">
         {filtroPia && <input type="hidden" name="pia" value={filtroPia} />}
         {/* Busca */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
-            name="q"
-            defaultValue={busca}
-            placeholder="Buscar por nome ou prontuário..."
-            className="w-full pl-9 pr-3 h-10 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-        </div>
+        <BuscaInput defaultValue={params.q ?? ""} />
         {/* Status */}
         <AutoSubmitSelect
           name="status"

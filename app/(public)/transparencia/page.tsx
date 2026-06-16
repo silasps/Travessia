@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { FileText, Download, Calendar, Folder, FolderOpen } from "lucide-react";
 import { formatDate } from "@/lib/utils/format";
 import type { DocumentoPublico } from "@/types/database";
+import { DocumentoViewerModal } from "@/components/transparencia/documento-viewer-modal";
 
 export const metadata: Metadata = {
   title: "Portal da Transparência — Projeto Travessia",
@@ -11,18 +12,6 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 3600;
-
-const CATEGORIA_CONFIG: Record<string, { label: string; order: number }> = {
-  estatuto:             { label: "Estatuto Social",                   order: 1 },
-  regimento:            { label: "Regimentos e Regulamentos",          order: 2 },
-  ata:                  { label: "Atas",                               order: 3 },
-  contrato_parceria:    { label: "Termos de Colaboração e Convênios",  order: 4 },
-  plano_trabalho:       { label: "Planos de Trabalho",                 order: 5 },
-  relatorio_atividades: { label: "Relatórios de Atividades",          order: 6 },
-  prestacao_contas:     { label: "Prestação de Contas",                order: 7 },
-  balancete:            { label: "Balancetes e Demonstrativos",        order: 8 },
-  outros:               { label: "Outros Documentos",                  order: 9 },
-};
 
 function formatBytes(kb: number | null) {
   if (!kb) return null;
@@ -60,19 +49,23 @@ function ExtBadge({ url }: { url: string }) {
 export default async function TransparenciaPage() {
   const supabase = await createClient();
 
-  const { data: docs, error } = await supabase
-    .from("documentos_publicos")
-    .select("*")
-    .eq("publicado", true)
-    .order("competencia", { ascending: false });
+  const [{ data: docs, error }, { data: categoriasData }] = await Promise.all([
+    supabase
+      .from("documentos_publicos")
+      .select("*")
+      .eq("publicado", true)
+      .order("competencia", { ascending: false }),
+    supabase.from("categorias_documentos_publicos").select("categoria, nome, ordem").order("ordem"),
+  ]);
 
   const documentos: DocumentoPublico[] = docs ?? [];
+  const cfgPorCategoria = new Map((categoriasData ?? []).map((c) => [c.categoria, c]));
 
   const grupos = new Map<string, { order: number; label: string; docs: DocumentoPublico[] }>();
   for (const doc of documentos) {
-    const cfg = CATEGORIA_CONFIG[doc.categoria] ?? { label: "Outros Documentos", order: 99 };
+    const cfg = cfgPorCategoria.get(doc.categoria);
     if (!grupos.has(doc.categoria)) {
-      grupos.set(doc.categoria, { order: cfg.order, label: cfg.label, docs: [] });
+      grupos.set(doc.categoria, { order: cfg?.ordem ?? 99, label: cfg?.nome ?? "Outros Documentos", docs: [] });
     }
     grupos.get(doc.categoria)!.docs.push(doc);
   }
@@ -122,12 +115,8 @@ export default async function TransparenciaPage() {
           </div>
 
           <div className="divide-y divide-gray-100">
-            {gruposOrdenados.map(([cat, { label, docs: grupoDocs }], idx) => (
-              <details
-                key={cat}
-                className="group"
-                open={idx === 0}
-              >
+            {gruposOrdenados.map(([cat, { label, docs: grupoDocs }]) => (
+              <details key={cat} className="group">
                 {/* Cabeçalho da pasta */}
                 <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors list-none select-none">
                   <span className="transition-transform group-open:rotate-90 text-gray-400 text-xs">▶</span>
@@ -142,12 +131,11 @@ export default async function TransparenciaPage() {
                 {/* Arquivos dentro da pasta */}
                 <div className="bg-gray-50/50 border-t border-gray-100">
                   {grupoDocs.map((doc, docIdx) => (
-                    <a
+                    <DocumentoViewerModal
                       key={doc.id}
-                      href={doc.arquivo_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-3 pl-10 pr-4 py-3 hover:bg-blue-50 transition-colors group/item ${
+                      titulo={doc.titulo}
+                      url={doc.arquivo_url}
+                      className={`flex items-center gap-3 pl-10 pr-4 py-3 hover:bg-blue-50 transition-colors group/item w-full text-left ${
                         docIdx < grupoDocs.length - 1 ? "border-b border-gray-100" : ""
                       }`}
                     >
@@ -180,7 +168,7 @@ export default async function TransparenciaPage() {
                         <ExtBadge url={doc.arquivo_url} />
                         <Download className="size-4 text-gray-300 group-hover/item:text-blue-500 transition-colors" />
                       </div>
-                    </a>
+                    </DocumentoViewerModal>
                   ))}
                 </div>
               </details>

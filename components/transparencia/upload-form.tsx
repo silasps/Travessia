@@ -58,7 +58,7 @@ export function UploadForm() {
         Adicionar documento
       </DialogTrigger>
 
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Adicionar documento</DialogTitle>
         </DialogHeader>
@@ -85,7 +85,7 @@ export function UploadForm() {
           </div>
 
           <div className="space-y-1.5">
-            <Label>Categoria</Label>
+            <Label>Pasta</Label>
             <Select value={categoria} onValueChange={(v) => setCategoria(v ?? "")} required>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione..." />

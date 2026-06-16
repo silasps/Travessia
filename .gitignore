@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# arquivos grandes baixados manualmente (ex: exports do Drive)
+*.zip
+
+# backups do banco de dados (dados sensíveis, não versionar)
+/backups/

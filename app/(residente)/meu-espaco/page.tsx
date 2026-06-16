@@ -7,6 +7,7 @@ import { User, TrendingUp, FileText, Calendar, AlertOctagon } from "lucide-react
 import Link from "next/link";
 import { formatDate, formatTempoNoPrograma } from "@/lib/utils/format";
 import { getMockResidente } from "@/lib/mock-data";
+import { resolveResidenteAcesso } from "@/lib/residente-preview";
 
 export const metadata: Metadata = { title: "Meu Espaço" };
 
@@ -47,14 +48,11 @@ export default async function MeuEspacoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect("/login");
 
-    // Membro da equipe em modo preview → usar dados fictícios
-    const { data: roleRow } = await supabase
-      .from("staff_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    const acesso = await resolveResidenteAcesso(supabase, user.id);
+    if (!acesso) redirect("/login");
 
-    if (roleRow) {
+    if (!acesso.residenteId) {
+      // Membro da equipe em preview, sem acolhido escolhido → dados fictícios
       const r = getMockResidente("r01")!;
       nomeExibido = r.nome_social ?? r.nome_completo;
       primeiroNome = nomeExibido.split(" ")[0];
@@ -63,17 +61,10 @@ export default async function MeuEspacoPage() {
       dataEntrada = r.data_entrada;
       fotoUrl = r.foto_url ?? null;
     } else {
-      const { data: portal } = await supabase
-        .from("residente_portals")
-        .select("residente_id")
-        .eq("user_id", user.id)
-        .single();
-      if (!portal) redirect("/login");
-
       const { data: residente } = await supabase
         .from("residentes")
         .select("nome_completo, nome_social, fase_atual, data_entrada, foto_url, numero_prontuario")
-        .eq("id", portal.residente_id)
+        .eq("id", acesso.residenteId)
         .single();
       if (!residente) redirect("/login");
 

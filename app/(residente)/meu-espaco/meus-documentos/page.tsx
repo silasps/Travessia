@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, XCircle, FileText } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { resolveResidenteAcesso } from "@/lib/residente-preview";
 import { getMockDocumentos } from "@/lib/mock-data";
 import type { DocumentoStatus } from "@/types/database";
 
 export const metadata: Metadata = { title: "Meus Documentos" };
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
 const STATUS_CONFIG: Record<DocumentoStatus, { label: string; icon: React.ElementType; className: string; bg: string }> = {
   entregue_residente: {
@@ -44,8 +49,37 @@ const TIPO_LABELS: Record<string, string> = {
   outros: "Outros documentos",
 };
 
+interface DocumentoView {
+  id: string;
+  tipo: string;
+  status: DocumentoStatus;
+  observacoes: string | null;
+}
+
 export default async function MeusDocumentosPage() {
-  const documentos = getMockDocumentos("r01");
+  let documentos: DocumentoView[];
+
+  if (DEV_MODE) {
+    documentos = getMockDocumentos("r01");
+  } else {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+
+    const acesso = await resolveResidenteAcesso(supabase, user.id);
+    if (!acesso) redirect("/login");
+
+    if (!acesso.residenteId) {
+      documentos = getMockDocumentos("r01");
+    } else {
+      const { data } = await supabase
+        .from("documentos_residente")
+        .select("id, tipo, status, observacoes")
+        .eq("residente_id", acesso.residenteId)
+        .order("tipo");
+      documentos = data ?? [];
+    }
+  }
 
   const entregues = documentos.filter((d) => d.status === "entregue_residente" || d.status === "obtido").length;
   const total = documentos.length;
@@ -63,12 +97,12 @@ export default async function MeusDocumentosPage() {
       <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-gray-700">Progresso da documentação</span>
-          <span className="font-bold text-gray-900">{Math.round((entregues / total) * 100)}%</span>
+          <span className="font-bold text-gray-900">{total > 0 ? Math.round((entregues / total) * 100) : 0}%</span>
         </div>
         <div className="w-full bg-gray-100 rounded-full h-3">
           <div
             className="bg-green-500 h-3 rounded-full transition-all"
-            style={{ width: `${(entregues / total) * 100}%` }}
+            style={{ width: `${total > 0 ? (entregues / total) * 100 : 0}%` }}
           />
         </div>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">

@@ -219,6 +219,13 @@ export interface DocumentoPublico {
   updated_at: string;
 }
 
+export interface CategoriaDocumentoPublico {
+  categoria: DocumentoCategoria;
+  nome: string;
+  ordem: number;
+  updated_at: string;
+}
+
 export interface ResidentePortal {
   id: string;
   residente_id: string;
@@ -390,6 +397,12 @@ export type Database = {
         Row: AsRow<DocumentoPublico>;
         Insert: Omit<DocumentoPublico, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<DocumentoPublico, "id" | "created_at">>;
+        Relationships: never[];
+      };
+      categorias_documentos_publicos: {
+        Row: AsRow<CategoriaDocumentoPublico>;
+        Insert: Omit<CategoriaDocumentoPublico, "updated_at">;
+        Update: Partial<Omit<CategoriaDocumentoPublico, "categoria">>;
         Relationships: never[];
       };
       residente_portals: {

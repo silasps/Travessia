@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { CheckCircle2, Clock, Star, Target } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { resolveResidenteAcesso } from "@/lib/residente-preview";
 import { getMockResidente, getMockMarcos, MOCK_FASES } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Minha Evolução" };
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
 const FASE_CONFIG = [
   { fase: 1, label: "Acolhimento",   cor: "blue" },
@@ -20,13 +25,68 @@ const COR_CLASSES: Record<string, { bg: string; border: string; text: string; do
   gray:   { bg: "bg-gray-100",   border: "border-gray-200",   text: "text-gray-500",   dot: "bg-gray-300" },
 };
 
-export default async function MinhaEvolucaoPage() {
-  // Em produção, buscar do banco via portal
-  const residente = getMockResidente("r01")!;
-  const marcos = getMockMarcos("r01");
-  const faseAtual = residente.fase_atual;
+interface Marco {
+  id: string;
+  descricao: string;
+  data_marco: string;
+}
 
-  const faseInfo = MOCK_FASES.find((f) => f.numero === faseAtual);
+interface FaseInfo {
+  numero: number;
+  nome: string;
+  descricao: string | null;
+  objetivos: string[];
+}
+
+export default async function MinhaEvolucaoPage() {
+  let faseAtual: number;
+  let marcos: Marco[];
+  let faseInfo: FaseInfo | undefined;
+
+  if (DEV_MODE) {
+    const residente = getMockResidente("r01")!;
+    faseAtual = residente.fase_atual;
+    marcos = getMockMarcos("r01");
+    faseInfo = MOCK_FASES.find((f) => f.numero === faseAtual);
+  } else {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+
+    const acesso = await resolveResidenteAcesso(supabase, user.id);
+    if (!acesso) redirect("/login");
+
+    if (!acesso.residenteId) {
+      const residente = getMockResidente("r01")!;
+      faseAtual = residente.fase_atual;
+      marcos = getMockMarcos("r01");
+      faseInfo = MOCK_FASES.find((f) => f.numero === faseAtual);
+    } else {
+      const { data: residente } = await supabase
+        .from("residentes")
+        .select("fase_atual")
+        .eq("id", acesso.residenteId)
+        .single();
+      if (!residente) redirect("/login");
+      faseAtual = residente.fase_atual;
+
+      const [{ data: marcosData }, { data: faseData }] = await Promise.all([
+        supabase
+          .from("marcos_evolucao")
+          .select("id, descricao, data_marco")
+          .eq("residente_id", acesso.residenteId)
+          .order("data_marco", { ascending: true }),
+        supabase
+          .from("fases_evolucao")
+          .select("numero, nome, descricao, objetivos")
+          .eq("numero", faseAtual)
+          .single(),
+      ]);
+
+      marcos = marcosData ?? [];
+      faseInfo = faseData ?? undefined;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -80,7 +140,7 @@ export default async function MinhaEvolucaoPage() {
             <p className={`text-sm font-medium ${COR_CLASSES[FASE_CONFIG[faseAtual - 1].cor].text} mb-1`}>
               Você está na {faseInfo.nome}
             </p>
-            <p className="text-sm text-gray-700">{faseInfo.descricao}</p>
+            {faseInfo.descricao && <p className="text-sm text-gray-700">{faseInfo.descricao}</p>}
           </div>
         )}
       </div>

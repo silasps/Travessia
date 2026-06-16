@@ -8,6 +8,7 @@ import { RolePreviewBanner } from "@/components/shared/role-preview-banner";
 import { RolePreviewSelector } from "@/components/shared/role-preview-selector";
 import type { StaffRole } from "@/lib/rbac";
 import { isKnownRole } from "@/lib/rbac";
+import { PREVIEW_RESIDENTE_COOKIE } from "@/lib/residente-preview";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
@@ -80,6 +81,29 @@ export default async function StaffLayout({
 
   const effectiveRole = previewRole ?? realRole;
 
+  let residentesPreview: { id: string; nome: string; numeroProntuario: string; status: string }[] = [];
+  let previewResidente: { id: string; nome: string } | null = null;
+
+  if (realRole === "super_admin") {
+    const { data: residentesData } = await supabase
+      .from("residentes")
+      .select("id, nome_completo, nome_social, numero_prontuario, status")
+      .order("nome_completo");
+
+    residentesPreview = (residentesData ?? []).map((r) => ({
+      id: r.id,
+      nome: r.nome_social ?? r.nome_completo,
+      numeroProntuario: r.numero_prontuario,
+      status: r.status,
+    }));
+
+    const previewResidenteId = cookieStore.get(PREVIEW_RESIDENTE_COOKIE)?.value ?? null;
+    if (previewResidenteId) {
+      const found = residentesPreview.find((r) => r.id === previewResidenteId);
+      if (found) previewResidente = { id: found.id, nome: found.nome };
+    }
+  }
+
   return (
     <div className="min-h-screen flex">
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-sidebar-border bg-sidebar z-30">
@@ -95,7 +119,11 @@ export default async function StaffLayout({
           </div>
           <div className="ml-auto flex items-center gap-2">
             {realRole === "super_admin" && (
-              <RolePreviewSelector currentPreview={previewRole} />
+              <RolePreviewSelector
+                currentPreview={previewRole}
+                residentes={residentesPreview}
+                currentPreviewResidente={previewResidente}
+              />
             )}
             <NotificationBell userId={user.id} />
           </div>

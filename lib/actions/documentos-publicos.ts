@@ -172,3 +172,41 @@ export async function listarTodosDocumentos() {
   if (error) return [];
   return data ?? [];
 }
+
+export async function listarCategorias() {
+  await verificarPermissao();
+  const admin = await createAdminClient();
+
+  const { data, error } = await admin
+    .from("categorias_documentos_publicos")
+    .select("categoria, nome, ordem")
+    .order("ordem");
+
+  if (error) return [];
+  return data ?? [];
+}
+
+export async function renomearCategoria(categoria: DocumentoCategoria, nome: string) {
+  await verificarPermissao();
+  const admin = await createAdminClient();
+
+  const nomeTrim = nome.trim();
+  if (!nomeTrim) return { error: "Nome da pasta não pode ser vazio." };
+
+  const { error } = await admin
+    .from("categorias_documentos_publicos")
+    .update({ nome: nomeTrim })
+    .eq("categoria", categoria);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/painel/transparencia");
+  revalidatePath("/transparencia");
+  return { success: true };
+}
+
+export async function bucketDocumentosExiste() {
+  const admin = await createAdminClient();
+  const { data } = await admin.storage.getBucket(BUCKET);
+  return data !== null;
+}

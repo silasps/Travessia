@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, ArrowRightLeft, Download } from "lucide-react";
-import { MOCK_RESIDENTES, MOCK_MOVIMENTOS } from "@/lib/mock-data";
 import { formatDate, formatDateTime } from "@/lib/utils/format";
-import { DevAlertButton } from "@/components/shared/dev-alert-button";
+import { getDefaultPeriodo, getRelatorioData, isMovimentoTipo } from "@/lib/relatorios/data";
 
 export const metadata: Metadata = { title: "Relatório Entradas e Saídas" };
 
@@ -20,22 +19,9 @@ export default async function EntradasSaidasPage({
   searchParams: Promise<{ de?: string; ate?: string; tipo?: string }>;
 }) {
   const params = await searchParams;
-  const hoje = new Date();
-  const primeiroDiaMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const dataInicio = params.de ?? primeiroDiaMes.toISOString().split("T")[0];
-  const dataFim = params.ate ?? hoje.toISOString().split("T")[0];
-  const filtroTipo = params.tipo ?? "";
-
-  let movimentos = MOCK_MOVIMENTOS.filter((m) => {
-    const data = m.data_hora.split("T")[0];
-    return data >= dataInicio && data <= dataFim;
-  });
-
-  if (filtroTipo) {
-    movimentos = movimentos.filter((m) => m.tipo === filtroTipo);
-  }
-
-  movimentos.sort((a, b) => new Date(b.data_hora).getTime() - new Date(a.data_hora).getTime());
+  const { dataInicio, dataFim } = getDefaultPeriodo(params);
+  const filtroTipo = params.tipo && isMovimentoTipo(params.tipo) ? params.tipo : "";
+  const { residentes, movimentos } = await getRelatorioData({ dataInicio, dataFim, tipo: filtroTipo });
 
   const entradas = movimentos.filter((m) => m.tipo === "entrada");
   const saidas = movimentos.filter((m) => m.tipo === "saida_definitiva");
@@ -60,13 +46,13 @@ export default async function EntradasSaidasPage({
             {formatDate(dataInicio)} – {formatDate(dataFim)}
           </p>
         </div>
-        <DevAlertButton
-          message="Exportar PDF disponível após conexão com banco."
+        <Link
+          href={`/painel/relatorios/exportar/entradas-saidas?de=${dataInicio}&ate=${dataFim}${filtroTipo ? `&tipo=${filtroTipo}` : ""}`}
           className="inline-flex items-center gap-2 rounded-xl border border-input bg-background px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors min-h-[44px]"
         >
           <Download className="size-4" />
           Exportar PDF
-        </DevAlertButton>
+        </Link>
       </div>
 
       {/* Filtros */}
@@ -125,7 +111,7 @@ export default async function EntradasSaidasPage({
           {/* Mobile: cards */}
           <div className="flex flex-col gap-2 lg:hidden">
             {movimentos.map((m) => {
-              const r = MOCK_RESIDENTES.find((x) => x.id === m.residente_id);
+              const r = residentes.find((x) => x.id === m.residente_id);
               const cfg = TIPO_CONFIG[m.tipo];
               return (
                 <div key={m.id} className="bg-white rounded-2xl border border-gray-100 p-4">
@@ -169,7 +155,7 @@ export default async function EntradasSaidasPage({
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {movimentos.map((m) => {
-                  const r = MOCK_RESIDENTES.find((x) => x.id === m.residente_id);
+                  const r = residentes.find((x) => x.id === m.residente_id);
                   const cfg = TIPO_CONFIG[m.tipo];
                   return (
                     <tr key={m.id} className="hover:bg-gray-50/60">

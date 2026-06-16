@@ -1,14 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPreviewResidenteId } from "@/lib/residente-preview";
 import Link from "next/link";
 import { Home, User, TrendingUp, FileText, LogOut, X } from "lucide-react";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
-function PreviewBanner() {
+function PreviewBanner({ nomeResidente }: { nomeResidente: string | null }) {
   return (
     <div className="bg-amber-400 text-amber-950 text-sm font-medium flex items-center justify-between px-4 py-2">
-      <span>Modo de visualização — <strong>Acolhido</strong></span>
+      <span>
+        Modo de visualização — <strong>Acolhido{nomeResidente ? `: ${nomeResidente}` : ""}</strong>
+      </span>
       <a
         href="/painel"
         className="flex items-center gap-1 text-xs font-semibold hover:underline opacity-80 hover:opacity-100"
@@ -33,6 +36,7 @@ export default async function ResidenteLayout({
   children: React.ReactNode;
 }) {
   let isSuperAdminPreview = DEV_MODE;
+  let nomePreview: string | null = null;
 
   if (!DEV_MODE) {
     const supabase = await createClient();
@@ -51,6 +55,15 @@ export default async function ResidenteLayout({
 
     if (roleRow) {
       isSuperAdminPreview = true;
+      const previewId = await getPreviewResidenteId();
+      if (previewId) {
+        const { data: residente } = await supabase
+          .from("residentes")
+          .select("nome_completo, nome_social")
+          .eq("id", previewId)
+          .single();
+        if (residente) nomePreview = residente.nome_social ?? residente.nome_completo;
+      }
     } else {
       const { data: portal } = await supabase
         .from("residente_portals")
@@ -64,7 +77,7 @@ export default async function ResidenteLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
-      {isSuperAdminPreview && <PreviewBanner />}
+      {isSuperAdminPreview && <PreviewBanner nomeResidente={nomePreview} />}
       {/* Header */}
       <header className="bg-sky-600 text-white px-4 py-4 sticky top-0 z-20">
         <div className="max-w-lg mx-auto flex items-center gap-3">

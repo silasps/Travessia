@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMockAdvertencias } from "@/lib/mock-data";
+import { resolveResidenteAcesso } from "@/lib/residente-preview";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Minhas Advertências" };
@@ -38,27 +39,16 @@ export default async function MinhasAdvertenciasPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect("/login");
 
-    // Membro da equipe em modo preview → usar dados fictícios
-    const { data: roleRow } = await supabase
-      .from("staff_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .single();
+    const acesso = await resolveResidenteAcesso(supabase, user.id);
+    if (!acesso) redirect("/login");
 
-    if (roleRow) {
+    if (!acesso.residenteId) {
       advertencias = getMockAdvertencias("r01");
     } else {
-      const { data: portal } = await supabase
-        .from("residente_portals")
-        .select("residente_id")
-        .eq("user_id", user.id)
-        .single();
-      if (!portal) redirect("/login");
-
       const { data } = await supabase
         .from("advertencias")
         .select("*")
-        .eq("residente_id", portal.residente_id)
+        .eq("residente_id", acesso.residenteId)
         .order("created_at", { ascending: false });
 
       advertencias = data ?? [];
