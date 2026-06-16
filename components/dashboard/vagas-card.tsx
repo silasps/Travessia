@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { BedDouble } from "lucide-react";
+import { Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -21,64 +21,69 @@ export function VagasCard({ ocupadas, capacidade }: VagasCardProps) {
       : "normal";
 
   return (
-    <Link href="/painel/residentes" className="block">
+    <Link href="/painel/residentes" className="block group">
       <Card
         className={cn(
-          "border-2 transition-colors h-full",
+          "border-2 transition-all h-full group-hover:shadow-md group-hover:-translate-y-0.5",
           status === "critico"
             ? "border-red-200 bg-red-50"
             : status === "alerta"
             ? "border-amber-200 bg-amber-50"
-            : "border-blue-100 bg-blue-50"
+            : "border-sky-100 bg-sky-50"
         )}
       >
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-gray-600">
-            Vagas
+            Acolhidos
           </CardTitle>
-          <BedDouble
+          <Users
             className={cn(
               "size-5",
               status === "critico"
                 ? "text-red-600"
                 : status === "alerta"
                 ? "text-amber-600"
-                : "text-blue-600"
+                : "text-sky-600"
             )}
           />
         </CardHeader>
         <CardContent className="space-y-3">
-          <div>
+          <div className="flex items-baseline gap-2">
             <span className="text-3xl font-bold text-gray-900">{ocupadas}</span>
-            <span className="text-lg text-muted-foreground">/{capacidade}</span>
+            <span className="text-sm text-muted-foreground">
+              {ocupadas === 1 ? "ativo" : "ativos"}
+            </span>
           </div>
           <Progress
             value={percentual}
             className={cn(
               "h-2",
               status === "critico"
-                ? "[&>div]:bg-red-500"
+                ? "[&_[data-slot=progress-indicator]]:bg-red-500"
                 : status === "alerta"
-                ? "[&>div]:bg-amber-500"
-                : "[&>div]:bg-blue-500"
+                ? "[&_[data-slot=progress-indicator]]:bg-amber-500"
+                : "[&_[data-slot=progress-indicator]]:bg-sky-500"
             )}
           />
-          <p
-            className={cn(
-              "text-xs font-medium",
-              status === "critico"
-                ? "text-red-700"
-                : status === "alerta"
-                ? "text-amber-700"
-                : "text-blue-700"
-            )}
-          >
-            {vagas === 0
-              ? "Capacidade máxima atingida"
-              : vagas === 1
-              ? "1 vaga disponível"
-              : `${vagas} vagas disponíveis`}
-          </p>
+          <div className="flex items-center justify-between">
+            <p
+              className={cn(
+                "text-xs font-medium",
+                status === "critico"
+                  ? "text-red-700"
+                  : status === "alerta"
+                  ? "text-amber-700"
+                  : "text-sky-700"
+              )}
+            >
+              {vagas === 0
+                ? "Capacidade máxima atingida"
+                : `${vagas} vaga${vagas !== 1 ? "s" : ""} livre${vagas !== 1 ? "s" : ""} de ${capacidade}`}
+            </p>
+            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver lista →
+            </span>
+          </div>
         </CardContent>
       </Card>
     </Link>

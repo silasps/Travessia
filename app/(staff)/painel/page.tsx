@@ -3,8 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { VagasCard } from "@/components/dashboard/vagas-card";
 import { OcorrenciasAbertas } from "@/components/dashboard/ocorrencias-abertas";
 import { PiasPendentes } from "@/components/dashboard/pias-pendentes";
-import { ResumoResidentes } from "@/components/dashboard/resumo-residentes";
-import { MOCK_STATS, MOCK_CONFIGURACOES } from "@/lib/mock-data";
+import { MOCK_STATS } from "@/lib/mock-data";
 
 export const metadata: Metadata = { title: "Painel" };
 
@@ -67,9 +66,8 @@ function PainelContent({
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Painel</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Visão geral do abrigo</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <VagasCard ocupadas={totalAtivos} capacidade={capacidade} />
-        <ResumoResidentes total={totalAtivos} />
         <OcorrenciasAbertas count={ocorrenciasAbertas} />
         <PiasPendentes count={piasPendentes} />
       </div>

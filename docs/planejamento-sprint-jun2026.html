@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Planejamento Sprint — Projeto Travessia (Jun 2026)</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #1a1a2e;
+      background: #fff;
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 40px 32px;
+    }
+    @media print {
+      body { padding: 20px 24px; font-size: 12px; }
+      .no-print { display: none; }
+      pre { font-size: 10px; }
+      h1 { font-size: 22px; }
+    }
+
+    /* ── Cover ── */
+    .cover {
+      border-left: 6px solid #1e40af;
+      padding: 24px 28px;
+      margin-bottom: 40px;
+      background: #eff6ff;
+      border-radius: 0 12px 12px 0;
+    }
+    .cover .tag {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #3b82f6;
+      margin-bottom: 8px;
+    }
+    .cover h1 { font-size: 26px; font-weight: 800; color: #1e3a8a; }
+    .cover .meta { margin-top: 10px; font-size: 12px; color: #64748b; }
+
+    /* ── Typography ── */
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin: 36px 0 14px;
+      padding-bottom: 6px;
+      border-bottom: 2px solid #bfdbfe;
+    }
+    h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e40af;
+      margin: 22px 0 8px;
+    }
+    h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+      margin: 16px 0 6px;
+    }
+    p { margin-bottom: 10px; color: #374151; }
+
+    /* ── Table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 20px;
+      font-size: 13px;
+    }
+    th {
+      background: #1e40af;
+      color: #fff;
+      padding: 9px 12px;
+      text-align: left;
+      font-weight: 600;
+    }
+    td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    /* ── Badges ── */
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .badge-green  { background: #dcfce7; color: #166534; }
+    .badge-blue   { background: #dbeafe; color: #1e40af; }
+    .badge-orange { background: #ffedd5; color: #9a3412; }
+    .badge-gray   { background: #f1f5f9; color: #475569; }
+    .badge-red    { background: #fee2e2; color: #991b1b; }
+
+    /* ── Feature cards ── */
+    .feature {
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+    .feature-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .feature-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .feature-title { font-size: 16px; font-weight: 700; color: #111827; }
+    .feature-subtitle { font-size: 12px; color: #6b7280; margin-top: 1px; }
+
+    .impl-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+      font-size: 12.5px;
+    }
+    .impl-item { background: #f8fafc; border-radius: 6px; padding: 8px 10px; }
+    .impl-item strong { display: block; color: #374151; margin-bottom: 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+    .impl-item span { color: #111827; }
+
+    /* ── Code ── */
+    pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      border-radius: 10px;
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.55;
+      margin: 12px 0 20px;
+    }
+    code { font-family: "SF Mono", "Fira Code", monospace; }
+
+    .sql-block { margin-bottom: 32px; }
+    .sql-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sql-num {
+      background: #1e40af;
+      color: #fff;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+    }
+
+    /* ── UX section ── */
+    .ux-item {
+      border-left: 3px solid #3b82f6;
+      padding: 4px 0 4px 14px;
+      margin-bottom: 10px;
+    }
+    .ux-item strong { color: #1e40af; }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 48px;
+      padding-top: 16px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+    }
+
+    /* ── Step indicator ── */
+    .steps {
+      display: flex;
+      gap: 0;
+      margin: 14px 0 20px;
+      flex-wrap: wrap;
+    }
+    .step {
+      flex: 1;
+      min-width: 120px;
+      text-align: center;
+      padding: 10px 8px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      font-size: 12px;
+      position: relative;
+    }
+    .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #9ca3af;
+      font-size: 14px;
+      z-index: 1;
+    }
+    .step strong { display: block; font-size: 11px; color: #374151; margin-top: 3px; }
+    .step-done { background: #dcfce7; border-color: #86efac; }
+
+    .notice {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #92400e;
+      margin: 14px 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- CAPA -->
+<div class="cover">
+  <div class="tag">Projeto Travessia · Planejamento Técnico</div>
+  <h1>Sprint de Melhorias — Junho 2026</h1>
+  <div class="meta">
+    Elaborado em: Junho 2026 &nbsp;·&nbsp;
+    Ambiente: Next.js 15 + Supabase &nbsp;·&nbsp;
+    Banco: <code>mvxyykreengnyfhodtol.supabase.co</code>
+  </div>
+</div>
+
+
+<!-- 1. CONTEXTO -->
+<h2>1. Contexto do Sistema</h2>
+<p>
+  O <strong>Projeto Travessia</strong> é um sistema de gestão para um abrigo institucional
+  masculino em Ribeirão Preto/SP com capacidade para 50 acolhidos. Desenvolvido em
+  Next.js 15 (App Router) + Supabase (PostgreSQL + Auth + RLS), com portal para
+  a equipe de staff e portal separado para os acolhidos.
+</p>
+
+<h3>Hierarquia de Permissões (RBAC)</h3>
+<table>
+  <tr><th>Papel</th><th>Nível</th><th>Acesso principal</th></tr>
+  <tr><td><span class="badge badge-red">super_admin</span></td><td>100</td><td>Tudo, incluindo gerenciamento de usuários</td></tr>
+  <tr><td><span class="badge badge-orange">coordenacao</span></td><td>70</td><td>Relatórios, PIA, avaliação de ocorrências, desligamento</td></tr>
+  <tr><td><span class="badge badge-blue">tecnico</span></td><td>50</td><td>Prontuário completo, PIA, anotações, encaminhamentos</td></tr>
+  <tr><td><span class="badge badge-gray">cuidador</span></td><td>20</td><td>Ocorrências, advertências verbais, dados básicos</td></tr>
+</table>
+
+
+<!-- 2. O QUE JÁ ESTAVA IMPLEMENTADO -->
+<h2>2. O Que Já Estava Implementado</h2>
+<table>
+  <tr><th>Funcionalidade</th><th>Status</th></tr>
+  <tr><td>Prontuário do acolhido (dados, documentos, família, evolução, PIA, ocorrências)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>PIA — Plano Individual de Atendimento (6 seções + histórico de revisões)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Ocorrências internas (leve→gravíssima, fluxo de avaliação pela coordenação)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Portal do acolhido (meu-espaço: perfil, documentos, evolução, marcos)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Portal da transparência pública (upload + publicação de documentos)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Relatórios de entradas e saídas (filtro por período)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Controle de vagas (50 capacidade, dashboard em tempo real)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>RBAC: super_admin / coordenação / técnico / cuidador</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Checklist de documentos do acolhido (8 tipos)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Contatos familiares + histórico de contatos</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Marcos de evolução (timeline por fase)</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>LGPD: consentimentos, audit log, soft-delete</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+  <tr><td>Notificações in-app</td><td><span class="badge badge-green">✓ OK</span></td></tr>
+</table>
+
+
+<!-- 3. ANÁLISE DE GAPS -->
+<h2>3. Gaps Identificados</h2>
+<p>
+  Cruzamos as <strong>anotações do gestor</strong> com o estado atual do código
+  e com um benchmark dos principais sistemas do mercado (Prontuário SUAS, Apricot/Bonterra,
+  Clarity HMIS, SigSocial). Três lacunas foram identificadas:
+</p>
+
+<table>
+  <tr><th>Gap</th><th>Problema</th><th>Motivo para implementar</th></tr>
+  <tr>
+    <td><strong>Advertências</strong></td>
+    <td>O sistema de <em>ocorrências</em> é interno (avaliado pela coordenação, invisível ao acolhido). Não havia mecanismo de advertência formal visível ao acolhido.</td>
+    <td>Gestor pediu explicitamente. Padrão em todos os abrigos: infração de regra → advertência formalizada → acolhido reconhece.</td>
+  </tr>
+  <tr>
+    <td><strong>Anotações Técnicas</strong></td>
+    <td><em>Marcos de evolução</em> registram conquistas. Não havia campo para observações livres da equipe de caráter cotidiano/clínico.</td>
+    <td>Gestor pediu ("observações visíveis só para a administração"). Equivalente ao "diário de campo" / "case notes" do padrão SUAS/HMIS.</td>
+  </tr>
+  <tr>
+    <td><strong>Encaminhamentos Externos</strong></td>
+    <td>Encaminhamentos para CRAS, CAPS, SINE etc. existiam apenas como texto livre no PIA — sem rastreabilidade de status ou retorno.</td>
+    <td>Padrão obrigatório no SUAS. Permite que a equipe acompanhe se o acolhido efetivamente compareceu ao serviço indicado.</td>
+  </tr>
+</table>
+
+<h3>O Que Decidimos NÃO Implementar (e Por Quê)</h3>
+<table>
+  <tr><th>Feature</th><th>Decisão</th><th>Razão</th></tr>
+  <tr><td>Lista de espera</td><td><span class="badge badge-gray">Descartado</span></td><td>Não mencionado. Aumentaria escopo significativamente.</td></tr>
+  <tr><td>Agendamentos internos</td><td><span class="badge badge-gray">Descartado</span></td><td>Complexidade alta, pode ser gerido via Google Calendar externo.</td></tr>
+  <tr><td>Controle de medicamentos</td><td><span class="badge badge-gray">Descartado</span></td><td>Muito especializado, não mencionado pelo gestor.</td></tr>
+  <tr><td>Avaliação de risco/saúde mental</td><td><span class="badge badge-gray">Descartado</span></td><td>PIA já contempla seção de saúde.</td></tr>
+  <tr><td>App mobile nativo</td><td><span class="badge badge-gray">Descartado</span></td><td>Sistema já é mobile-first (PWA).</td></tr>
+</table>
+
+
+<!-- 4. O QUE FOI IMPLEMENTADO -->
+<h2>4. O Que Foi Implementado Nesta Sprint</h2>
+
+<!-- UX GERAL -->
+<h3>4.1 Melhorias Gerais de UX</h3>
+<div class="ux-item"><strong>Cards clicáveis no dashboard:</strong> vagas, ocorrências abertas, PIAs pendentes, resumo de acolhidos — todos com efeito de lift (sombra + subida + "Ver →") ao passar o mouse.</div>
+<div class="ux-item"><strong>Tabela de acolhidos navegável:</strong> toda a linha `&lt;tr&gt;` é clicável, sem precisar de Link em cada célula.</div>
+<div class="ux-item"><strong>Ocorrências em modal:</strong> em vez de navegar para outra página, o detalhe da ocorrência abre num Dialog sobre o prontuário.</div>
+<div class="ux-item"><strong>Documentos em modal:</strong> cada item do checklist de documentos abre um Dialog com todos os detalhes.</div>
+<div class="ux-item"><strong>Relatório com links:</strong> movimentações do relatório de entradas/saídas têm link direto para o prontuário do acolhido.</div>
+
+<!-- ADVERTÊNCIAS -->
+<div class="feature">
+  <div class="feature-header">
+    <div class="feature-icon" style="background:#ffedd5;">⚠️</div>
+    <div>
+      <div class="feature-title">Advertências</div>
+      <div class="feature-subtitle">Infrações de regras institucionais — visíveis ao acolhido</div>
+    </div>
+  </div>
+
+  <p>Sistema de registro graduado de disciplina: <strong>verbal → escrita → suspensão temporária</strong>. Distinto de ocorrências (que são registros técnicos internos).</p>
+
+  <div class="impl-grid">
+    <div class="impl-item"><strong>Aba no prontuário</strong><span>Exibida no painel do staff com lista, badge de tipo, motivo e status de reconhecimento</span></div>
+    <div class="impl-item"><strong>Modal de registro</strong><span>Cuidador+ pode registrar. Seleção de tipo (3 botões), motivo (9 opções), descrição livre</span></div>
+    <div class="impl-item"><strong>Portal do acolhido</strong><span>Nova página /meu-espaco/minhas-advertencias com aviso de pendente reconhecimento</span></div>
+    <div class="impl-item"><strong>RBAC</strong><span>Cuidador: verbal. Técnico+: escrita e suspensão. Coordenação+: pode marcar reconhecimento</span></div>
+    <div class="impl-item"><strong>Migration SQL</strong><span>supabase/migrations/011_advertencias.sql</span></div>
+    <div class="impl-item"><strong>RLS</strong><span>Staff lê tudo; acolhido lê só as próprias via residente_portals</span></div>
+  </div>
+</div>
+
+<!-- ANOTAÇÕES TÉCNICAS -->
+<div class="feature">
+  <div class="feature-header">
+    <div class="feature-icon" style="background:#dbeafe;">📝</div>
+    <div>
+      <div class="feature-title">Anotações Técnicas</div>
+      <div class="feature-subtitle">Diário de campo — visível só para a equipe técnica</div>
+    </div>
+  </div>
+
+  <p>Registro livre e imutável de observações, atendimentos e comportamentos. Funciona como um "case notes" do padrão SUAS. <strong>Não aparece no portal do acolhido.</strong></p>
+
+  <div class="impl-grid">
+    <div class="impl-item"><strong>Aba no prontuário</strong><span>Ordem cronológica inversa, exibe autor e cargo</span></div>
+    <div class="impl-item"><strong>Modal de registro</strong><span>Textarea longa com aviso de imutabilidade antes de salvar</span></div>
+    <div class="impl-item"><strong>Imutabilidade</strong><span>Sem políticas de UPDATE/DELETE no banco — impossível alterar após gravar</span></div>
+    <div class="impl-item"><strong>RBAC</strong><span>Técnico+ cria e lê. Cuidador não tem acesso.</span></div>
+    <div class="impl-item"><strong>Migration SQL</strong><span>supabase/migrations/012_anotacoes_tecnicas.sql</span></div>
+    <div class="impl-item"><strong>RLS</strong><span>Técnico+ lê e insere. Nenhuma policy de update/delete = bloqueado por RLS</span></div>
+  </div>
+</div>
+
+<!-- ENCAMINHAMENTOS -->
+<div class="feature">
+  <div class="feature-header">
+    <div class="feature-icon" style="background:#dcfce7;">🔗</div>
+    <div>
+      <div class="feature-title">Encaminhamentos Externos</div>
+      <div class="feature-subtitle">Rastreamento de encaminhamentos para serviços da rede socioassistencial</div>
+    </div>
+  </div>
+
+  <p>Permite registrar e acompanhar encaminhamentos formais para CRAS, CREAS, CAPS, UBS, SINE, cursos, benefícios sociais, assistência jurídica e moradia. Status: <em>pendente → realizado / sem retorno / cancelado</em>.</p>
+
+  <div class="impl-grid">
+    <div class="impl-item"><strong>Aba no prontuário</strong><span>Lista com badge de status, serviço, responsável e datas</span></div>
+    <div class="impl-item"><strong>Modal de registro</strong><span>Dropdown de serviço, descrição, data de retorno previsto</span></div>
+    <div class="impl-item"><strong>Visibilidade</strong><span>Técnico+ no staff. NÃO aparece no portal do acolhido (dado operacional)</span></div>
+    <div class="impl-item"><strong>RBAC</strong><span>Técnico+ cria, lê e atualiza status</span></div>
+    <div class="impl-item"><strong>Migration SQL</strong><span>supabase/migrations/013_encaminhamentos.sql</span></div>
+    <div class="impl-item"><strong>RLS</strong><span>Técnico+ lê, insere e atualiza. Cuidador e acolhido não têm acesso.</span></div>
+  </div>
+</div>
+
+
+<!-- 5. SQL PARA RODAR NO SUPABASE -->
+<h2>5. SQL para Aplicar no Banco</h2>
+
+<div class="notice">
+  <strong>Onde rodar:</strong> Supabase Dashboard →
+  <strong>SQL Editor</strong> (ícone de terminal na barra lateral) →
+  botão <strong>New query</strong>.
+  URL do projeto: <code>https://supabase.com/dashboard/project/mvxyykreengnyfhodtol/sql/new</code><br><br>
+  <strong>Ordem:</strong> rodar os 3 scripts na ordem 011 → 012 → 013. Cada um é independente mas
+  a convenção de numeração indica a ordem correta.
+</div>
+
+<div class="sql-block">
+  <div class="sql-title">
+    <span class="sql-num">1</span>
+    011_advertencias.sql — Tabela de Advertências
+  </div>
+  <pre><code>-- ─────────────────────────────────────────
+-- ADVERTÊNCIAS (infrações de regras)
+-- ─────────────────────────────────────────
+-- Distinto de ocorrencias: advertência é um ato formal de disciplina
+-- que o próprio acolhido pode visualizar no portal.
+
+CREATE TYPE advertencia_tipo AS ENUM (
+  'verbal',
+  'escrita',
+  'suspensao'
+);
+
+CREATE TABLE advertencias (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  residente_id    UUID NOT NULL REFERENCES residentes(id) ON DELETE CASCADE,
+  tipo            advertencia_tipo NOT NULL,
+  motivo          TEXT NOT NULL,
+  descricao       TEXT,
+  data_aplicacao  DATE NOT NULL DEFAULT CURRENT_DATE,
+  aplicado_por    UUID NOT NULL REFERENCES auth.users(id),
+  reconhecido_em  TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at      TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE TRIGGER trg_advertencias_updated_at
+  BEFORE UPDATE ON advertencias
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE INDEX idx_advertencias_residente ON advertencias(residente_id);
+
+ALTER TABLE advertencias ENABLE ROW LEVEL SECURITY;
+
+-- Staff lê todas as advertências
+CREATE POLICY "advertencias_staff_read" ON advertencias
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM staff_roles WHERE user_id = auth.uid())
+  );
+
+-- Cuidador pode registrar advertência verbal; técnico+ pode registrar qualquer tipo
+CREATE POLICY "advertencias_staff_insert" ON advertencias
+  FOR INSERT WITH CHECK (
+    EXISTS (SELECT 1 FROM staff_roles WHERE user_id = auth.uid())
+  );
+
+-- Apenas coordenação+ pode atualizar (marcar reconhecimento, por exemplo)
+CREATE POLICY "advertencias_coordenacao_update" ON advertencias
+  FOR UPDATE USING (has_staff_role('coordenacao') OR has_staff_role('super_admin'));
+
+-- Acolhido vê suas próprias advertências via residente_portals
+CREATE POLICY "advertencias_residente_read" ON advertencias
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM residente_portals rp
+      WHERE rp.user_id = auth.uid()
+        AND rp.residente_id = advertencias.residente_id
+        AND rp.ativo = true
+    )
+  );</code></pre>
+</div>
+
+<div class="sql-block">
+  <div class="sql-title">
+    <span class="sql-num">2</span>
+    012_anotacoes_tecnicas.sql — Diário de Campo
+  </div>
+  <pre><code>-- ─────────────────────────────────────────
+-- ANOTAÇÕES TÉCNICAS (diário de campo)
+-- ─────────────────────────────────────────
+-- Registros internos da equipe técnica sobre o acolhido.
+-- Imutáveis após criação (não se edita, não se deleta).
+-- Visíveis apenas para técnico+ — NÃO aparecem no portal do acolhido.
+
+CREATE TABLE anotacoes_tecnicas (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  residente_id  UUID NOT NULL REFERENCES residentes(id) ON DELETE CASCADE,
+  conteudo      TEXT NOT NULL,
+  autor_id      UUID NOT NULL REFERENCES auth.users(id),
+  created_at    TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX idx_anotacoes_residente ON anotacoes_tecnicas(residente_id);
+CREATE INDEX idx_anotacoes_autor ON anotacoes_tecnicas(autor_id);
+
+ALTER TABLE anotacoes_tecnicas ENABLE ROW LEVEL SECURITY;
+
+-- Apenas técnico+ pode ler anotações (cuidador não tem acesso)
+CREATE POLICY "anotacoes_tecnico_read" ON anotacoes_tecnicas
+  FOR SELECT USING (
+    has_staff_role('super_admin') OR
+    has_staff_role('coordenacao') OR
+    has_staff_role('tecnico')
+  );
+
+-- Técnico+ pode inserir
+CREATE POLICY "anotacoes_tecnico_insert" ON anotacoes_tecnicas
+  FOR INSERT WITH CHECK (
+    has_staff_role('super_admin') OR
+    has_staff_role('coordenacao') OR
+    has_staff_role('tecnico')
+  );
+
+-- Ninguém pode editar ou deletar (registro imutável por design)
+-- (sem policies de UPDATE/DELETE = bloqueado por RLS)</code></pre>
+</div>
+
+<div class="sql-block">
+  <div class="sql-title">
+    <span class="sql-num">3</span>
+    013_encaminhamentos.sql — Encaminhamentos Externos
+  </div>
+  <pre><code>-- ─────────────────────────────────────────
+-- ENCAMINHAMENTOS EXTERNOS
+-- ─────────────────────────────────────────
+-- Rastreamento de encaminhamentos formais da equipe técnica para
+-- serviços externos (CRAS, CAPS, saúde, emprego, etc.).
+-- Visível para técnico+. Não aparece no portal do acolhido.
+
+CREATE TYPE encaminhamento_servico AS ENUM (
+  'cras',
+  'creas',
+  'caps',
+  'saude',
+  'emprego_sine',
+  'curso_profissionalizante',
+  'beneficio_social',
+  'juridico',
+  'moradia',
+  'outros'
+);
+
+CREATE TYPE encaminhamento_status AS ENUM (
+  'pendente',
+  'realizado',
+  'sem_retorno',
+  'cancelado'
+);
+
+CREATE TABLE encaminhamentos (
+  id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  residente_id          UUID NOT NULL REFERENCES residentes(id) ON DELETE CASCADE,
+  servico               encaminhamento_servico NOT NULL,
+  descricao             TEXT NOT NULL,
+  data_encaminhamento   DATE NOT NULL DEFAULT CURRENT_DATE,
+  responsavel_id        UUID NOT NULL REFERENCES auth.users(id),
+  retorno_previsto      DATE,
+  status                encaminhamento_status NOT NULL DEFAULT 'pendente',
+  observacoes_retorno   TEXT,
+  created_at            TIMESTAMPTZ DEFAULT now() NOT NULL,
+  updated_at            TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE TRIGGER trg_encaminhamentos_updated_at
+  BEFORE UPDATE ON encaminhamentos
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+CREATE INDEX idx_encaminhamentos_residente ON encaminhamentos(residente_id);
+
+ALTER TABLE encaminhamentos ENABLE ROW LEVEL SECURITY;
+
+-- Técnico+ pode ler e inserir
+CREATE POLICY "encaminhamentos_tecnico_read" ON encaminhamentos
+  FOR SELECT USING (
+    has_staff_role('super_admin') OR
+    has_staff_role('coordenacao') OR
+    has_staff_role('tecnico')
+  );
+
+CREATE POLICY "encaminhamentos_tecnico_insert" ON encaminhamentos
+  FOR INSERT WITH CHECK (
+    has_staff_role('super_admin') OR
+    has_staff_role('coordenacao') OR
+    has_staff_role('tecnico')
+  );
+
+-- Técnico+ pode atualizar status e observações de retorno
+CREATE POLICY "encaminhamentos_tecnico_update" ON encaminhamentos
+  FOR UPDATE USING (
+    has_staff_role('super_admin') OR
+    has_staff_role('coordenacao') OR
+    has_staff_role('tecnico')
+  );</code></pre>
+</div>
+
+
+<!-- 6. CHECKLIST PÓS-APLICAÇÃO -->
+<h2>6. Checklist de Verificação Pós-Aplicação das Migrations</h2>
+<table>
+  <tr><th>#</th><th>Teste</th><th>Como verificar</th></tr>
+  <tr>
+    <td>1</td>
+    <td>Advertência registrada por cuidador</td>
+    <td>Logar como cuidador → prontuário → aba Advertências → "Registrar Advertência" → salvar</td>
+  </tr>
+  <tr>
+    <td>2</td>
+    <td>Advertência visível no portal do acolhido</td>
+    <td>Logar como acolhido → /meu-espaco/minhas-advertencias → deve aparecer a advertência registrada</td>
+  </tr>
+  <tr>
+    <td>3</td>
+    <td>Anotação técnica invisível para cuidador</td>
+    <td>Logar como cuidador → prontuário → aba Anotações deve estar ausente ou bloqueada</td>
+  </tr>
+  <tr>
+    <td>4</td>
+    <td>Anotação técnica visível para técnico</td>
+    <td>Logar como técnico → prontuário → aba Anotações → "Nova Anotação" → salvar → verificar listagem</td>
+  </tr>
+  <tr>
+    <td>5</td>
+    <td>Encaminhamento registrado e atualizado</td>
+    <td>Logar como técnico → "Novo Encaminhamento" → salvar como pendente → depois editar status para realizado</td>
+  </tr>
+  <tr>
+    <td>6</td>
+    <td>Encaminhamento invisível no portal do acolhido</td>
+    <td>Logar como acolhido → /meu-espaco → não deve haver link para encaminhamentos</td>
+  </tr>
+</table>
+
+
+<!-- FOOTER -->
+<div class="footer">
+  Projeto Travessia · Planejamento técnico gerado em Junho 2026 ·
+  Next.js 15 + Supabase · mvxyykreengnyfhodtol.supabase.co
+</div>
+
+</body>
+</html>

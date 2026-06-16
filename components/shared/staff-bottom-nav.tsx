@@ -47,12 +47,12 @@ export function StaffBottomNav({ role }: { role: StaffRole | null }) {
               className={cn(
                 "relative flex-1 flex flex-col items-center justify-center gap-1 py-2 min-h-[56px] transition-colors",
                 isActive
-                  ? "text-blue-700"
-                  : "text-muted-foreground hover:text-blue-600"
+                  ? "text-sky-600"
+                  : "text-muted-foreground hover:text-sky-500"
               )}
             >
               {isActive && (
-                <span className="absolute top-0 inset-x-3 h-0.5 bg-blue-600 rounded-full" />
+                <span className="absolute top-0 inset-x-3 h-0.5 bg-sky-500 rounded-full" />
               )}
               <item.icon className={cn("size-5", isActive && "stroke-[2.5]")} />
               <span className="text-[10px] font-medium leading-none">{item.label}</span>

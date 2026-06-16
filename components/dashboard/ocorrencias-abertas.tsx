@@ -9,8 +9,8 @@ interface OcorrenciasAbertasProps {
 
 export function OcorrenciasAbertas({ count }: OcorrenciasAbertasProps) {
   return (
-    <Link href="/painel/ocorrencias" className="block">
-      <Card className={cn("h-full border-2", count > 0 ? "border-amber-200 bg-amber-50" : "border-gray-100")}>
+    <Link href="/painel/ocorrencias" className="block group">
+      <Card className={cn("h-full border-2 transition-all group-hover:shadow-md group-hover:-translate-y-0.5", count > 0 ? "border-amber-200 bg-amber-50" : "border-gray-100")}>
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <CardTitle className="text-sm font-medium text-gray-600">
             Ocorrências
@@ -19,13 +19,18 @@ export function OcorrenciasAbertas({ count }: OcorrenciasAbertasProps) {
         </CardHeader>
         <CardContent>
           <div className="text-3xl font-bold text-gray-900">{count}</div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {count === 0
-              ? "Nenhuma pendente"
-              : count === 1
-              ? "1 aguardando avaliação"
-              : `${count} aguardando avaliação`}
-          </p>
+          <div className="flex items-center justify-between mt-1">
+            <p className="text-xs text-muted-foreground">
+              {count === 0
+                ? "Nenhuma pendente"
+                : count === 1
+                ? "1 aguardando avaliação"
+                : `${count} aguardando avaliação`}
+            </p>
+            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+              Ver →
+            </span>
+          </div>
         </CardContent>
       </Card>
     </Link>

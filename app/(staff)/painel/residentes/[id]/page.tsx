@@ -3,34 +3,73 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, FileText, Calendar, MapPin, User,
-  Phone, CheckCircle2, Clock, XCircle, Folder,
-  AlertTriangle, TrendingUp, Users, Edit
+  Phone, Folder, AlertTriangle, TrendingUp, Users, Edit,
+  StickyNote, ExternalLink, AlertOctagon, CheckCircle2, Clock,
 } from "lucide-react";
 import {
   getMockResidente, getMockDocumentos, getMockMarcos,
   getMockContatosFamiliares, getMockHistoricoContatos,
   getMockOcorrencias, getMockPia, MOCK_FASES,
+  getMockAdvertencias, getMockAnotacoes, getMockEncaminhamentos, MOCK_STAFF,
 } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/server";
+import type { Residente } from "@/types/database";
 import { StatusBadge, FaseBadge } from "@/components/residentes/status-badge";
 import { RegistrarMarcoForm } from "@/components/residentes/registrar-marco-form";
 import { RegistrarContatoForm } from "@/components/residentes/registrar-contato-form";
 import { MudarFaseBtn } from "@/components/residentes/mudar-fase-btn";
+import { DocumentoItemModal } from "@/components/residentes/documento-item-modal";
+import { OcorrenciaDetalheModal } from "@/components/residentes/ocorrencia-detalhe-modal";
+import { RegistrarAdvertenciaForm } from "@/components/residentes/registrar-advertencia-form";
+import { RegistrarAnotacaoForm } from "@/components/residentes/registrar-anotacao-form";
+import { RegistrarEncaminhamentoForm } from "@/components/residentes/registrar-encaminhamento-form";
+import { SERVICO_LABELS } from "@/components/residentes/registrar-encaminhamento-form";
 import { formatDate, formatDateTime, formatTempoNoPrograma, maskCPF } from "@/lib/utils/format";
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
+
+async function getResidente(id: string): Promise<Residente | undefined> {
+  if (DEV_MODE) return getMockResidente(id);
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("residentes")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  return data ?? undefined;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const r = getMockResidente(id);
+  const r = await getResidente(id);
   return { title: r ? `${r.nome_social ?? r.nome_completo} — Prontuário` : "Acolhido" };
 }
 
 const TABS = [
-  { id: "dados", label: "Dados", icon: User },
-  { id: "documentos", label: "Documentos", icon: Folder },
-  { id: "evolucao", label: "Evolução", icon: TrendingUp },
-  { id: "familia", label: "Família", icon: Users },
-  { id: "pia", label: "PIA", icon: FileText },
-  { id: "ocorrencias", label: "Ocorrências", icon: AlertTriangle },
+  { id: "dados",            label: "Dados",           icon: User },
+  { id: "documentos",       label: "Documentos",      icon: Folder },
+  { id: "evolucao",         label: "Evolução",        icon: TrendingUp },
+  { id: "familia",          label: "Família",         icon: Users },
+  { id: "pia",              label: "PIA",             icon: FileText },
+  { id: "ocorrencias",      label: "Ocorrências",     icon: AlertTriangle },
+  { id: "advertencias",     label: "Advertências",    icon: AlertOctagon },
+  { id: "anotacoes",        label: "Anotações",       icon: StickyNote },
+  { id: "encaminhamentos",  label: "Encaminhamentos", icon: ExternalLink },
 ];
+
+const ADVERTENCIA_TIPO_CONFIG = {
+  verbal:    { label: "Verbal",    className: "bg-yellow-100 text-yellow-800 border border-yellow-200" },
+  escrita:   { label: "Escrita",   className: "bg-orange-100 text-orange-800 border border-orange-200" },
+  suspensao: { label: "Suspensão", className: "bg-red-100 text-red-900 border border-red-200 font-bold" },
+};
+
+const ENCAMINHAMENTO_STATUS_CONFIG = {
+  pendente:     { label: "Pendente",     dot: "bg-amber-500",  badge: "bg-amber-100 text-amber-800" },
+  realizado:    { label: "Realizado",    dot: "bg-green-500",  badge: "bg-green-100 text-green-800" },
+  sem_retorno:  { label: "Sem retorno",  dot: "bg-gray-400",   badge: "bg-gray-100 text-gray-700" },
+  cancelado:    { label: "Cancelado",    dot: "bg-red-400",    badge: "bg-red-100 text-red-700" },
+};
 
 const GRAVIDADE_CONFIG = {
   leve:       { label: "Leve",       className: "bg-yellow-100 text-yellow-800" },
@@ -46,18 +85,6 @@ const STATUS_OC_CONFIG = {
   improcedente: { label: "Improcedente", className: "bg-green-100 text-green-800" },
 };
 
-const DOC_STATUS_CONFIG = {
-  nao_possui:         { label: "Não possui",         icon: XCircle,       className: "text-gray-400" },
-  em_processo:        { label: "Em processo",        icon: Clock,         className: "text-amber-500" },
-  obtido:             { label: "Obtido",             icon: CheckCircle2,  className: "text-green-600" },
-  entregue_residente: { label: "Entregue",           icon: CheckCircle2,  className: "text-blue-600" },
-};
-
-const DOC_TIPO_LABELS: Record<string, string> = {
-  rg: "RG", cpf: "CPF", certidao_nascimento: "Certidão de Nascimento",
-  carteira_trabalho: "Carteira de Trabalho", titulo_eleitor: "Título de Eleitor",
-  nis_cadastro_unico: "NIS / CadÚnico", cartao_sus: "Cartão SUS", foto_3x4: "Foto 3x4",
-};
 
 const PIA_STATUS_CONFIG = {
   rascunho:       { label: "Rascunho",         className: "bg-gray-100 text-gray-700" },
@@ -77,7 +104,7 @@ export default async function ResidenteDetailPage({
   const { id } = await params;
   const { aba = "dados" } = await searchParams;
 
-  const residente = getMockResidente(id);
+  const residente = await getResidente(id);
   if (!residente) notFound();
 
   const documentos = getMockDocumentos(id);
@@ -86,6 +113,9 @@ export default async function ResidenteDetailPage({
   const historicoContatos = getMockHistoricoContatos(id);
   const ocorrencias = getMockOcorrencias(id);
   const pia = getMockPia(id);
+  const advertencias = getMockAdvertencias(id);
+  const anotacoes = getMockAnotacoes(id);
+  const encaminhamentos = getMockEncaminhamentos(id);
 
   const nomeExibido = residente.nome_social ?? residente.nome_completo;
 
@@ -208,34 +238,12 @@ export default async function ResidenteDetailPage({
         {aba === "documentos" && (
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Checklist de documentos do acolhido. Atualize conforme obtidos.
+              Clique em um documento para ver os detalhes.
             </p>
-            <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50">
-              {documentos.map((doc) => {
-                const cfg = DOC_STATUS_CONFIG[doc.status];
-                const StatusIcon = cfg.icon;
-                return (
-                  <div key={doc.id} className="flex items-center gap-4 px-4 py-3.5">
-                    <StatusIcon className={`size-5 flex-shrink-0 ${cfg.className}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900">
-                        {DOC_TIPO_LABELS[doc.tipo] ?? doc.tipo}
-                      </p>
-                      {doc.numero && (
-                        <p className="text-xs text-muted-foreground">{doc.numero}</p>
-                      )}
-                      {doc.data_obtido && (
-                        <p className="text-xs text-muted-foreground">
-                          Obtido em {formatDate(doc.data_obtido)}
-                        </p>
-                      )}
-                    </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${doc.status === "obtido" ? "bg-green-100 text-green-700" : doc.status === "em_processo" ? "bg-amber-100 text-amber-700" : doc.status === "entregue_residente" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-500"}`}>
-                      {cfg.label}
-                    </span>
-                  </div>
-                );
-              })}
+            <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 overflow-hidden">
+              {documentos.map((doc) => (
+                <DocumentoItemModal key={doc.id} doc={doc} />
+              ))}
             </div>
           </div>
         )}
@@ -514,35 +522,178 @@ export default async function ResidenteDetailPage({
                   const gravCfg = GRAVIDADE_CONFIG[oc.gravidade];
                   const statusCfg = STATUS_OC_CONFIG[oc.status];
                   return (
-                    <Link
-                      key={oc.id}
-                      href={`/painel/ocorrencias/${oc.id}`}
-                      className="block bg-white rounded-xl border border-gray-100 p-4 hover:border-blue-200 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1.5">
-                            <span className="font-mono text-xs text-gray-500">{oc.numero}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${gravCfg.className}`}>
-                              {gravCfg.label}
-                            </span>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${statusCfg.className}`}>
-                              {statusCfg.label}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-800 line-clamp-2">{oc.descricao}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {formatDate(oc.data_ocorrencia)} · {oc.local ?? "Local não informado"}
-                          </p>
+                    <OcorrenciaDetalheModal key={oc.id} oc={oc}>
+                      <div className="bg-white rounded-xl border border-gray-100 p-4 hover:border-blue-200 hover:bg-blue-50/20 transition-colors">
+                        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                          <span className="font-mono text-xs text-gray-500">{oc.numero}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${gravCfg.className}`}>
+                            {gravCfg.label}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${statusCfg.className}`}>
+                            {statusCfg.label}
+                          </span>
                         </div>
+                        <p className="text-sm text-gray-800 line-clamp-2">{oc.descricao}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatDate(oc.data_ocorrencia)} · {oc.local ?? "Local não informado"}
+                        </p>
                       </div>
-                    </Link>
+                    </OcorrenciaDetalheModal>
                   );
                 })}
               </div>
             )}
           </div>
         )}
+
+        {/* ── ABA: Advertências ── */}
+        {aba === "advertencias" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Advertências ({advertencias.length})
+              </h3>
+              <RegistrarAdvertenciaForm residenteId={id} />
+            </div>
+
+            {advertencias.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                <AlertOctagon className="size-10 mx-auto mb-2 opacity-20" />
+                Nenhuma advertência registrada para este acolhido.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {advertencias.map((adv) => {
+                  const cfg = ADVERTENCIA_TIPO_CONFIG[adv.tipo];
+                  const aplicadoPor = MOCK_STAFF.find((s) => s.id === adv.aplicado_por);
+                  return (
+                    <div key={adv.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${cfg.className}`}>
+                          {cfg.label}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900">{adv.motivo}</span>
+                        <span className="ml-auto text-xs text-muted-foreground">{formatDate(adv.data_aplicacao)}</span>
+                      </div>
+                      {adv.descricao && (
+                        <p className="text-sm text-gray-700 mb-2">{adv.descricao}</p>
+                      )}
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>Aplicada por: {aplicadoPor?.full_name ?? adv.aplicado_por}</span>
+                        {adv.reconhecido_em ? (
+                          <span className="flex items-center gap-1 text-green-700">
+                            <CheckCircle2 className="size-3" />
+                            Reconhecida pelo acolhido
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-amber-700">
+                            <Clock className="size-3" />
+                            Aguardando reconhecimento
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ABA: Anotações Técnicas ── */}
+        {aba === "anotacoes" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Anotações Técnicas ({anotacoes.length})
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Visível apenas para a equipe técnica — não aparece no portal do acolhido.
+                </p>
+              </div>
+              <RegistrarAnotacaoForm residenteId={id} />
+            </div>
+
+            {anotacoes.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                <StickyNote className="size-10 mx-auto mb-2 opacity-20" />
+                Nenhuma anotação técnica registrada.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {[...anotacoes].reverse().map((anot) => {
+                  const autor = MOCK_STAFF.find((s) => s.id === anot.autor_id);
+                  return (
+                    <div key={anot.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-xs font-medium text-blue-700">
+                          {autor?.full_name ?? "Equipe técnica"}
+                          {autor?.cargo ? ` — ${autor.cargo}` : ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{formatDateTime(anot.created_at)}</span>
+                      </div>
+                      <p className="text-sm text-gray-800 whitespace-pre-wrap">{anot.conteudo}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ABA: Encaminhamentos ── */}
+        {aba === "encaminhamentos" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-900">
+                Encaminhamentos ({encaminhamentos.length})
+              </h3>
+              <RegistrarEncaminhamentoForm residenteId={id} />
+            </div>
+
+            {encaminhamentos.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                <ExternalLink className="size-10 mx-auto mb-2 opacity-20" />
+                Nenhum encaminhamento registrado para este acolhido.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {encaminhamentos.map((enc) => {
+                  const statusCfg = ENCAMINHAMENTO_STATUS_CONFIG[enc.status];
+                  const responsavel = MOCK_STAFF.find((s) => s.id === enc.responsavel_id);
+                  return (
+                    <div key={enc.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${statusCfg.badge}`}>
+                          {statusCfg.label}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {SERVICO_LABELS[enc.servico] ?? enc.servico}
+                        </span>
+                        <span className="ml-auto text-xs text-muted-foreground">{formatDate(enc.data_encaminhamento)}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">{enc.descricao}</p>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <span>Responsável: {responsavel?.full_name ?? enc.responsavel_id}</span>
+                        {enc.retorno_previsto && (
+                          <span>Retorno previsto: {formatDate(enc.retorno_previsto)}</span>
+                        )}
+                      </div>
+                      {enc.observacoes_retorno && (
+                        <div className="mt-2 bg-gray-50 rounded-lg p-2.5">
+                          <p className="text-xs font-medium text-gray-600 mb-0.5">Observações do retorno</p>
+                          <p className="text-sm text-gray-700">{enc.observacoes_retorno}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );

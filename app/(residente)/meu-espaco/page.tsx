@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { User, TrendingUp, FileText, Calendar } from "lucide-react";
+import { User, TrendingUp, FileText, Calendar, AlertOctagon } from "lucide-react";
 import Link from "next/link";
 import { formatDate, formatTempoNoPrograma } from "@/lib/utils/format";
 import { getMockResidente } from "@/lib/mock-data";
@@ -46,26 +47,43 @@ export default async function MeuEspacoPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) redirect("/login");
 
-    const { data: portal } = await supabase
-      .from("residente_portals")
-      .select("residente_id")
+    // Membro da equipe em modo preview → usar dados fictícios
+    const { data: roleRow } = await supabase
+      .from("staff_roles")
+      .select("role")
       .eq("user_id", user.id)
       .single();
-    if (!portal) redirect("/login");
 
-    const { data: residente } = await supabase
-      .from("residentes")
-      .select("nome_completo, nome_social, fase_atual, data_entrada, foto_url, numero_prontuario")
-      .eq("id", portal.residente_id)
-      .single();
-    if (!residente) redirect("/login");
+    if (roleRow) {
+      const r = getMockResidente("r01")!;
+      nomeExibido = r.nome_social ?? r.nome_completo;
+      primeiroNome = nomeExibido.split(" ")[0];
+      numeroProntuario = r.numero_prontuario;
+      faseAtual = r.fase_atual;
+      dataEntrada = r.data_entrada;
+      fotoUrl = r.foto_url ?? null;
+    } else {
+      const { data: portal } = await supabase
+        .from("residente_portals")
+        .select("residente_id")
+        .eq("user_id", user.id)
+        .single();
+      if (!portal) redirect("/login");
 
-    nomeExibido = residente.nome_social ?? residente.nome_completo;
-    primeiroNome = nomeExibido.split(" ")[0];
-    numeroProntuario = residente.numero_prontuario;
-    faseAtual = residente.fase_atual;
-    dataEntrada = residente.data_entrada;
-    fotoUrl = residente.foto_url ?? null;
+      const { data: residente } = await supabase
+        .from("residentes")
+        .select("nome_completo, nome_social, fase_atual, data_entrada, foto_url, numero_prontuario")
+        .eq("id", portal.residente_id)
+        .single();
+      if (!residente) redirect("/login");
+
+      nomeExibido = residente.nome_social ?? residente.nome_completo;
+      primeiroNome = nomeExibido.split(" ")[0];
+      numeroProntuario = residente.numero_prontuario;
+      faseAtual = residente.fase_atual;
+      dataEntrada = residente.data_entrada;
+      fotoUrl = residente.foto_url ?? null;
+    }
   }
 
   return (
@@ -88,7 +106,14 @@ export default async function MeuEspacoPage() {
           <div className="flex items-center gap-3">
             <div className="w-14 h-14 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0">
               {fotoUrl ? (
-                <img src={fotoUrl} alt={nomeExibido} className="w-14 h-14 rounded-full object-cover" />
+                <Image
+                  src={fotoUrl}
+                  alt={nomeExibido}
+                  width={56}
+                  height={56}
+                  className="w-14 h-14 rounded-full object-cover"
+                  unoptimized
+                />
               ) : (
                 <User className="size-7 text-blue-600" />
               )}
@@ -157,6 +182,17 @@ export default async function MeuEspacoPage() {
             <div>
               <p className="font-semibold text-gray-900 text-base">Meu Perfil</p>
               <p className="text-sm text-muted-foreground">Seus dados pessoais</p>
+            </div>
+          </Link>
+
+          <Link
+            href="/meu-espaco/minhas-advertencias"
+            className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 hover:border-orange-200 hover:bg-orange-50/30 transition-colors"
+          >
+            <AlertOctagon className="size-8 text-orange-500 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-gray-900 text-base">Minhas Advertências</p>
+              <p className="text-sm text-muted-foreground">Veja advertências registradas</p>
             </div>
           </Link>
         </div>

@@ -5,8 +5,6 @@ import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Minha Evolução" };
 
-const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
-
 const FASE_CONFIG = [
   { fase: 1, label: "Acolhimento",   cor: "blue" },
   { fase: 2, label: "Reorganização", cor: "amber" },

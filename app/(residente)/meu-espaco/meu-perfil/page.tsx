@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { User, Shield } from "lucide-react";
 import { getMockResidente } from "@/lib/mock-data";
 import { formatDate, maskCPF } from "@/lib/utils/format";
@@ -21,7 +22,14 @@ export default async function MeuPerfilPage() {
       <div className="flex flex-col items-center py-4">
         <div className="size-24 rounded-full bg-blue-100 flex items-center justify-center">
           {r.foto_url ? (
-            <img src={r.foto_url} alt={nomeExibido} className="size-24 rounded-full object-cover" />
+            <Image
+              src={r.foto_url}
+              alt={nomeExibido}
+              width={96}
+              height={96}
+              className="size-24 rounded-full object-cover"
+              unoptimized
+            />
           ) : (
             <User className="size-12 text-blue-600" />
           )}

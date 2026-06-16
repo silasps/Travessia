@@ -76,3 +76,22 @@ export function canVerAuditLog(role: StaffRole | null | undefined): boolean {
 export function canVerDadosSensiveis(role: StaffRole | null | undefined): boolean {
   return getRoleLevel(role) >= ROLE_LEVEL.tecnico;
 }
+
+// Advertências: cuidador pode registrar verbal; técnico+ pode registrar escrita/suspensão
+export function canRegistrarAdvertencia(role: StaffRole | null | undefined): boolean {
+  return getRoleLevel(role) >= ROLE_LEVEL.cuidador;
+}
+
+export function canRegistrarAdvertenciaFormal(role: StaffRole | null | undefined): boolean {
+  return getRoleLevel(role) >= ROLE_LEVEL.tecnico;
+}
+
+// Anotações técnicas: apenas técnico+
+export function canVerAnotacoesTecnicas(role: StaffRole | null | undefined): boolean {
+  return getRoleLevel(role) >= ROLE_LEVEL.tecnico;
+}
+
+// Encaminhamentos: apenas técnico+
+export function canVerEncaminhamentos(role: StaffRole | null | undefined): boolean {
+  return getRoleLevel(role) >= ROLE_LEVEL.tecnico;
+}

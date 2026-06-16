@@ -1,13 +1,15 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setPreviewRole, clearPreviewRole } from "@/lib/actions/preview-role";
-import { Eye, ChevronDown, ExternalLink } from "lucide-react";
+import { Eye, ChevronDown } from "lucide-react";
 import type { StaffRole } from "@/lib/rbac";
 import { ROLE_LABELS } from "@/lib/rbac";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -23,6 +25,7 @@ export function RolePreviewSelector({
   currentPreview: StaffRole | null;
 }) {
   const [isPending, startTransition] = useTransition();
+  const router = useRouter();
 
   function select(role: StaffRole) {
     startTransition(async () => {
@@ -33,6 +36,13 @@ export function RolePreviewSelector({
   function clear() {
     startTransition(async () => {
       await clearPreviewRole();
+    });
+  }
+
+  function openAsAcolhido() {
+    startTransition(async () => {
+      await clearPreviewRole();
+      router.push("/meu-espaco");
     });
   }
 
@@ -53,35 +63,37 @@ export function RolePreviewSelector({
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="w-52">
-        <DropdownMenuLabel className="text-xs text-gray-500">Simular visão de:</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {ROLES.map((role) => (
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="text-xs text-gray-500">Simular visão de:</DropdownMenuLabel>
+          {ROLES.map((role) => (
+            <DropdownMenuItem
+              key={role}
+              onClick={() => select(role)}
+              className={`text-sm cursor-pointer ${
+                currentPreview === role ? "font-semibold text-blue-700 bg-blue-50" : ""
+              }`}
+            >
+              {ROLE_LABELS[role]}
+            </DropdownMenuItem>
+          ))}
           <DropdownMenuItem
-            key={role}
-            onClick={() => select(role)}
-            className={`text-sm cursor-pointer ${
-              currentPreview === role ? "font-semibold text-blue-700 bg-blue-50" : ""
-            }`}
+            onClick={openAsAcolhido}
+            className="text-sm cursor-pointer text-gray-700"
           >
-            {ROLE_LABELS[role]}
+            Acolhido
           </DropdownMenuItem>
-        ))}
-        <DropdownMenuItem
-          onClick={() => window.open("/meu-espaco", "_blank")}
-          className="text-sm cursor-pointer text-gray-700"
-        >
-          <span className="flex-1">Acolhido</span>
-          <ExternalLink className="size-3 text-gray-400" />
-        </DropdownMenuItem>
+        </DropdownMenuGroup>
         {currentPreview && (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={clear}
-              className="text-sm text-amber-700 cursor-pointer"
-            >
-              Sair do preview
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                onClick={clear}
+                className="text-sm text-amber-700 cursor-pointer"
+              >
+                Sair do preview
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </>
         )}
       </DropdownMenuContent>

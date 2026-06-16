@@ -23,6 +23,7 @@ export function MudarFaseBtn({ residenteId, faseAtual }: Props) {
 
   function handleSalvar() {
     if (faseSelecionada === faseAtual || !justificativa.trim()) return;
+    void residenteId;
     setSalvo(true);
     setTimeout(() => {
       setSalvo(false);

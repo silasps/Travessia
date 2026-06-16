@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Users, ArrowRightLeft, FileText, TrendingUp } from "lucide-react";
-import { MOCK_RESIDENTES, MOCK_MOVIMENTOS, MOCK_STATS } from "@/lib/mock-data";
+import { MOCK_RESIDENTES, MOCK_MOVIMENTOS } from "@/lib/mock-data";
 import { formatDate } from "@/lib/utils/format";
 import { ExportButton } from "@/components/relatorios/export-button";
 
@@ -32,9 +32,6 @@ export default async function RelatoriosPage({
 
   // Stats gerais (usam todos os dados, não só o período)
   const ativos = MOCK_RESIDENTES.filter((r) => r.status === "ativo");
-  const desligados = MOCK_RESIDENTES.filter((r) => r.status === "desligado");
-  const evadidos = MOCK_RESIDENTES.filter((r) => r.status === "evadido");
-
   const distribuicaoFases = [1, 2, 3, 4].map((f) => ({
     fase: f,
     count: ativos.filter((r) => r.fase_atual === f).length,
@@ -135,15 +132,19 @@ export default async function RelatoriosPage({
             Nenhum movimento registrado neste período.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1">
             {movimentosFiltrados.map((m) => {
               const r = MOCK_RESIDENTES.find((x) => x.id === m.residente_id);
               const isEntrada = m.tipo === "entrada";
               return (
-                <div key={m.id} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
-                  <span className={`mt-0.5 size-2 rounded-full shrink-0 ${isEntrada ? "bg-green-500" : "bg-red-400"}`} />
+                <Link
+                  key={m.id}
+                  href={r ? `/painel/residentes/${r.id}` : "#"}
+                  className="flex items-start gap-3 py-2.5 px-2 -mx-2 rounded-xl border border-transparent hover:border-blue-100 hover:bg-blue-50/30 transition-colors group"
+                >
+                  <span className={`mt-1.5 size-2 rounded-full shrink-0 ${isEntrada ? "bg-green-500" : "bg-red-400"}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="text-sm font-medium text-gray-900 group-hover:text-blue-700 transition-colors">
                       {r?.nome_social ?? r?.nome_completo ?? m.residente_id}
                     </p>
                     <p className="text-xs text-muted-foreground">{m.motivo}</p>
@@ -154,7 +155,7 @@ export default async function RelatoriosPage({
                     </span>
                     <p className="text-xs text-muted-foreground mt-0.5">{formatDate(m.data_hora)}</p>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -213,4 +214,3 @@ function StatCard({ label, value, icon }: { label: string; value: number; icon: 
     </div>
   );
 }
-

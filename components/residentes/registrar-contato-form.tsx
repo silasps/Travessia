@@ -12,6 +12,7 @@ export function RegistrarContatoForm({ residenteId }: { residenteId: string }) {
 
   function handleSalvar() {
     if (!descricao.trim()) return;
+    void residenteId;
     setSalvo(true);
     setTimeout(() => {
       setSalvo(false);

@@ -17,6 +17,7 @@ export function RegistrarMarcoForm({ residenteId, faseAtual }: Props) {
 
   function handleSalvar() {
     if (!descricao.trim()) return;
+    void residenteId;
     // Em produção: chamar server action
     setSalvo(true);
     setTimeout(() => {

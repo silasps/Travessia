@@ -6,6 +6,11 @@ export type ResidenteStatus = "ativo" | "desligado" | "evadido" | "transferido" 
 export type OcorrenciaGravidade = "leve" | "moderada" | "grave" | "gravissima";
 export type OcorrenciaStatus = "aberta" | "em_avaliacao" | "confirmada" | "improcedente";
 export type PiaStatus = "rascunho" | "em_elaboracao" | "concluido" | "revisao" | "desatualizado";
+export type AdvertenciaTipo = "verbal" | "escrita" | "suspensao";
+export type EncaminhamentoServico =
+  | "cras" | "creas" | "caps" | "saude" | "emprego_sine"
+  | "curso_profissionalizante" | "beneficio_social" | "juridico" | "moradia" | "outros";
+export type EncaminhamentoStatus = "pendente" | "realizado" | "sem_retorno" | "cancelado";
 export type DocumentoCategoria =
   | "ata"
   | "relatorio_atividades"
@@ -255,6 +260,41 @@ export interface ConfiguracaoSistema {
   chave: string;
   valor: string;
   descricao: string | null;
+  updated_at: string;
+}
+
+export interface Advertencia {
+  id: string;
+  residente_id: string;
+  tipo: AdvertenciaTipo;
+  motivo: string;
+  descricao: string | null;
+  data_aplicacao: string;
+  aplicado_por: string;
+  reconhecido_em: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnotacaoTecnica {
+  id: string;
+  residente_id: string;
+  conteudo: string;
+  autor_id: string;
+  created_at: string;
+}
+
+export interface Encaminhamento {
+  id: string;
+  residente_id: string;
+  servico: EncaminhamentoServico;
+  descricao: string;
+  data_encaminhamento: string;
+  responsavel_id: string;
+  retorno_previsto: string | null;
+  status: EncaminhamentoStatus;
+  observacoes_retorno: string | null;
+  created_at: string;
   updated_at: string;
 }
 

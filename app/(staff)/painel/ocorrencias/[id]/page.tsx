@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, User, MapPin, FileText, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { ArrowLeft, User, MapPin, ClipboardCheck, AlertTriangle } from "lucide-react";
 import { MOCK_OCORRENCIAS, MOCK_RESIDENTES, MOCK_STAFF } from "@/lib/mock-data";
 import { AvaliacaoForm } from "@/components/ocorrencias/avaliacao-form";
 import { formatDate, formatDateTime } from "@/lib/utils/format";

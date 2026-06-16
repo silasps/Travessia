@@ -1,10 +1,10 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -40,39 +40,41 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Notificações</span>
-          {unread > 0 && (
-            <button
-              onClick={markAllRead}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Marcar todas como lidas
-            </button>
-          )}
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {notifications.length === 0 ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Nenhuma notificação
-          </div>
-        ) : (
-          notifications.slice(0, 5).map((n) => (
-            <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2.5">
-              <span className="font-medium text-sm">
-                {TYPE_LABELS[n.type] ?? n.type}
-              </span>
-              {typeof n.payload?.descricao === "string" && (
-                <span className="text-xs text-muted-foreground line-clamp-1">
-                  {n.payload.descricao}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="flex items-center justify-between">
+            <span>Notificações</span>
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Marcar todas como lidas
+              </button>
+            )}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {notifications.length === 0 ? (
+            <div className="p-4 text-center text-sm text-muted-foreground">
+              Nenhuma notificação
+            </div>
+          ) : (
+            notifications.slice(0, 5).map((n) => (
+              <DropdownMenuItem key={n.id} className="flex flex-col items-start gap-0.5 py-2.5">
+                <span className="font-medium text-sm">
+                  {TYPE_LABELS[n.type] ?? n.type}
                 </span>
-              )}
-              <span className="text-[11px] text-muted-foreground">
-                {formatRelative(n.created_at)}
-              </span>
-            </DropdownMenuItem>
-          ))
-        )}
+                {typeof n.payload?.descricao === "string" && (
+                  <span className="text-xs text-muted-foreground line-clamp-1">
+                    {n.payload.descricao}
+                  </span>
+                )}
+                <span className="text-[11px] text-muted-foreground">
+                  {formatRelative(n.created_at)}
+                </span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

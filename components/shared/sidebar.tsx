@@ -6,12 +6,10 @@ import {
   Home,
   Users,
   AlertTriangle,
-  FileText,
   BarChart2,
   Settings,
   LogOut,
   ChevronRight,
-  Bell,
   UserCog,
   FolderOpen,
 } from "lucide-react";
@@ -67,14 +65,12 @@ const NAV_ITEMS: NavItem[] = [
 interface SidebarContentProps {
   role: StaffRole | null;
   userName: string;
-  unreadCount?: number;
   onClose?: () => void;
 }
 
 export function SidebarContent({
   role,
   userName,
-  unreadCount = 0,
   onClose,
 }: SidebarContentProps) {
   const pathname = usePathname();
@@ -94,12 +90,12 @@ export function SidebarContent({
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 bg-sky-500 rounded-xl flex items-center justify-center flex-shrink-0">
             <span className="text-white text-sm font-bold">PT</span>
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold truncate">Projeto Travessia</p>
-            <p className="text-xs text-muted-foreground truncate">{userName}</p>
+            <p className="text-xs text-sidebar-foreground/60 truncate">{userName}</p>
           </div>
         </div>
       </div>
@@ -120,7 +116,7 @@ export function SidebarContent({
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors min-h-[44px]",
                 isActive
-                  ? "bg-blue-600 text-white"
+                  ? "bg-sky-500 text-white"
                   : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )}
             >
@@ -141,7 +137,7 @@ export function SidebarContent({
       <div className="p-3 border-t border-sidebar-border space-y-1">
         <Button
           variant="ghost"
-          className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10 min-h-[44px]"
+          className="w-full justify-start gap-3 text-red-400 hover:text-red-300 hover:bg-red-400/10 min-h-[44px]"
           onClick={handleSignOut}
         >
           <LogOut className="size-5" />

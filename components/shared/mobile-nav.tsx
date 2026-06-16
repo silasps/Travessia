@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { SidebarContent } from "./sidebar";
@@ -10,10 +10,9 @@ import type { StaffRole } from "@/lib/rbac";
 interface MobileNavProps {
   role: StaffRole | null;
   userName: string;
-  unreadCount?: number;
 }
 
-export function MobileNav({ role, userName, unreadCount }: MobileNavProps) {
+export function MobileNav({ role, userName }: MobileNavProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -34,7 +33,6 @@ export function MobileNav({ role, userName, unreadCount }: MobileNavProps) {
           <SidebarContent
             role={role}
             userName={userName}
-            unreadCount={unreadCount}
             onClose={() => setOpen(false)}
           />
         </SheetContent>

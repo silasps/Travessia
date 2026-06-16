@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Save, CheckCircle2 } from "lucide-react";
 import { getMockResidente } from "@/lib/mock-data";
-import { formatDate } from "@/lib/utils/format";
 
 export default function EditarResidentePage() {
   const { id } = useParams<{ id: string }>();
@@ -157,7 +156,7 @@ export default function EditarResidentePage() {
           <h2 className="font-semibold text-gray-900">Situação de rua</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Tempo em situação de rua <span className="text-xs text-muted-foreground">(ex: "8 meses", "2 anos")</span>
+              Tempo em situação de rua <span className="text-xs text-muted-foreground">(ex: &quot;8 meses&quot;, &quot;2 anos&quot;)</span>
             </label>
             <input type="text" defaultValue={r.tempo_situacao_rua ?? ""}
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />

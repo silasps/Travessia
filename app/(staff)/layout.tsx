@@ -20,13 +20,13 @@ export default async function StaffLayout({
   if (DEV_MODE) {
     return (
       <div className="min-h-screen flex">
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-border bg-background z-30">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-sidebar-border bg-sidebar z-30">
           <SidebarContent role={"super_admin" as StaffRole} userName="Dev Admin" />
         </aside>
         <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
           <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex items-center gap-3">
             <div className="flex items-center gap-2 lg:hidden">
-              <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-7 h-7 bg-sky-500 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-xs font-bold">PT</span>
               </div>
               <p className="text-sm font-semibold text-foreground">Projeto Travessia</p>
@@ -82,13 +82,13 @@ export default async function StaffLayout({
 
   return (
     <div className="min-h-screen flex">
-      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-border bg-background z-30">
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-sidebar-border bg-sidebar z-30">
         <SidebarContent role={effectiveRole} userName={userName} />
       </aside>
       <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
         <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex items-center gap-3">
           <div className="flex items-center gap-2 lg:hidden">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-7 h-7 bg-sky-500 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs font-bold">PT</span>
             </div>
             <p className="text-sm font-semibold text-foreground">Projeto Travessia</p>
