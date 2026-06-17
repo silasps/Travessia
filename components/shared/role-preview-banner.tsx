@@ -16,8 +16,8 @@ export function RolePreviewBanner({ previewRole }: { previewRole: StaffRole }) {
   }
 
   return (
-    <div className="sticky top-14 z-30 flex items-center justify-between gap-3 bg-amber-400 px-4 py-2 text-amber-950 text-sm font-medium">
-      <span>
+    <div className="sticky top-14 z-30 flex flex-wrap items-center justify-between gap-2 bg-amber-400 px-4 py-2 text-amber-950 text-sm font-medium">
+      <span className="min-w-0">
         Modo de visualização —{" "}
         <strong>{ROLE_LABELS[previewRole]}</strong>
       </span>

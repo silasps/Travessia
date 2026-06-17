@@ -3,41 +3,305 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, Save, FileText, Heart, Target, Users, Activity, BookOpen, CheckCircle2 } from "lucide-react";
+import {
+  ArrowLeft, Save, FileText, Plus, Trash2,
+  CheckCircle2, ClipboardList, ChevronRight,
+} from "lucide-react";
 import { getMockResidente, getMockPia } from "@/lib/mock-data";
 
-type Secao = "identificacao" | "historico" | "saude" | "objetivos" | "plano" | "rede";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const SECOES: { id: Secao; label: string; icon: React.ReactNode }[] = [
-  { id: "identificacao", label: "Identificação complementar", icon: <FileText className="size-4" /> },
-  { id: "historico",     label: "Histórico de vida",          icon: <BookOpen className="size-4" /> },
-  { id: "saude",         label: "Saúde",                     icon: <Heart className="size-4" /> },
-  { id: "objetivos",     label: "Objetivos",                  icon: <Target className="size-4" /> },
-  { id: "plano",         label: "Plano de ação",              icon: <Activity className="size-4" /> },
-  { id: "rede",          label: "Rede de apoio",              icon: <Users className="size-4" /> },
+type Etapa = "etapa1" | "etapa6";
+type SecaoEtapa1 =
+  | "identificacao"
+  | "procedencia"
+  | "rede_familiar"
+  | "programas_sociais"
+  | "rede_servicos"
+  | "situacoes";
+
+interface MembroFamilia {
+  nome: string;
+  vinculo: string;
+  idade: string;
+  orientacao_sexual: string;
+  deficiente: string;
+  endereco: string;
+  telefone: string;
+}
+
+interface SituacaoItem {
+  quem: string;
+  situacao: string;
+  localidade: string;
+}
+
+interface RegistroAcompanhamento {
+  data: string;
+  descricao: string;
+  tecnico: string;
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const SECOES_ETAPA1: { id: SecaoEtapa1; label: string; numero: string }[] = [
+  { id: "identificacao",     label: "Dados de Identificação",               numero: "1" },
+  { id: "procedencia",       label: "Procedência",                           numero: "2" },
+  { id: "rede_familiar",     label: "Rede Familiar e/ou Apoio",             numero: "3" },
+  { id: "programas_sociais", label: "Programas Sociais",                    numero: "4" },
+  { id: "rede_servicos",     label: "Rede de Serviços Socioassistenciais",  numero: "5" },
+  { id: "situacoes",         label: "Situações Específicas",                numero: "6" },
 ];
+
+const FORMAS_ACESSO = [
+  "Procura Espontânea", "Busca Ativa", "CRAS", "CREAS",
+  "Abordagem Social", "Casa de Convivência", "Conselho de Direitos",
+  "Casa de Passagem", "Defensoria Pública", "Ministério Público",
+  "Saúde", "Centro POP", "Entidades da rede Socioassistencial",
+];
+
+const DOCS_ENCAMINHAMENTO = [
+  "Relatório Informativo", "Nenhum", "Boletim de Ocorrência", "PAF", "PDI", "PIA",
+];
+
+const BENEFICIOS_RENDA = [
+  { id: "bolsa_familia", label: "Bolsa Família" },
+  { id: "renda_cidada",  label: "Renda Cidadã" },
+  { id: "renda_minima",  label: "Renda Mínima" },
+  { id: "bpc",           label: "BPC Idoso/Deficiente" },
+];
+
+const BENEFICIOS_EVENTUAIS = [
+  "Cesta Básica", "Cesta Verde", "Aluguel Social",
+  "Vale-transporte para tratamento da Saúde", "Auxílio Emergencial",
+];
+
+const SERVICOS_BASICA = [
+  "PAIF",
+  "Convivência e Fortalecimento de Vínculos",
+  "No domicílio para pessoas com deficiência e/ou idosa",
+];
+
+const SERVICOS_MEDIA = [
+  "PAEFI",
+  "Abordagem Social",
+  "Para Idosos, Pessoas com Deficiência e suas famílias",
+];
+
+const SERVICOS_ALTA = [
+  "Acolhimento Institucional",
+  "Casa Lar",
+  "Proteção em situação de Calamidades Públicas e de Emergência",
+  "Centro acolhida",
+];
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const inputCls =
+  "w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+const selectCls =
+  "w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none";
+const textareaCls =
+  "w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none";
+const inputSmCls =
+  "h-9 rounded-lg border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
+// ─── Small components ─────────────────────────────────────────────────────────
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      {children}
+    </label>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-xs font-semibold text-blue-700 uppercase tracking-wider mb-3">
+      {children}
+    </p>
+  );
+}
+
+function CheckboxOption({
+  label, checked, onChange,
+}: {
+  label: string; checked: boolean; onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer group">
+      <div className={`size-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+        checked ? "bg-blue-700 border-blue-700" : "border-gray-300 group-hover:border-blue-400"
+      }`}>
+        {checked && (
+          <svg className="size-3 text-white" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </div>
+      <span className="text-sm text-gray-700">{label}</span>
+    </label>
+  );
+}
+
+function RadioOption({
+  label, checked, onChange,
+}: {
+  label: string; checked: boolean; onChange: () => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer group">
+      <div className={`size-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+        checked ? "border-blue-700" : "border-gray-300 group-hover:border-blue-400"
+      }`}>
+        {checked && <div className="size-2.5 rounded-full bg-blue-700" />}
+      </div>
+      <span className="text-sm text-gray-700">{label}</span>
+    </label>
+  );
+}
+
+// ─── SituacaoBlock ────────────────────────────────────────────────────────────
+
+function SituacaoBlock({
+  titulo, nota, value, onChange, items, onUpdate, onAdd,
+}: {
+  titulo: string;
+  nota: string;
+  value: "" | "nao" | "sim";
+  onChange: (v: "" | "nao" | "sim") => void;
+  items: SituacaoItem[];
+  onUpdate: (idx: number, field: keyof SituacaoItem, val: string) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="space-y-2.5 pb-5 border-b border-gray-100 last:border-0 last:pb-0">
+      <p className="text-sm font-semibold text-gray-800">{titulo}</p>
+      <div className="flex gap-6">
+        <RadioOption label="Não" checked={value === "nao"} onChange={() => onChange("nao")} />
+        <RadioOption label="Sim, indique abaixo:" checked={value === "sim"} onChange={() => onChange("sim")} />
+      </div>
+      {value === "sim" && (
+        <div className="space-y-2 mt-2">
+          <div className="grid grid-cols-3 gap-2 px-1">
+            <span className="text-xs font-medium text-gray-400">Identifique quem</span>
+            <span className="text-xs font-medium text-gray-400">Em qual situação</span>
+            <span className="text-xs font-medium text-gray-400">Em qual localidade</span>
+          </div>
+          {items.map((item, idx) => (
+            <div key={idx} className="grid grid-cols-3 gap-2">
+              <input type="text" value={item.quem} onChange={e => onUpdate(idx, "quem", e.target.value)}
+                placeholder="Nome / vínculo" className={inputSmCls} />
+              <input type="text" value={item.situacao} onChange={e => onUpdate(idx, "situacao", e.target.value)}
+                placeholder="Situação" className={inputSmCls} />
+              <input type="text" value={item.localidade} onChange={e => onUpdate(idx, "localidade", e.target.value)}
+                placeholder="Localidade" className={inputSmCls} />
+            </div>
+          ))}
+          <button type="button" onClick={onAdd}
+            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 mt-1">
+            <Plus className="size-3" /> Adicionar linha
+          </button>
+          {nota && <p className="text-xs text-gray-400 italic pt-1">{nota}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PiaPage() {
   const { id } = useParams<{ id: string }>();
   const residente = getMockResidente(id);
   const pia = getMockPia(id);
 
-  const [secaoAtiva, setSecaoAtiva] = useState<Secao>("identificacao");
+  const [etapa, setEtapa] = useState<Etapa>("etapa1");
+  const [secaoAtiva, setSecaoAtiva] = useState<SecaoEtapa1>("identificacao");
   const [salvo, setSalvo] = useState(false);
+
+  // Seção 2 — Procedência
+  const [formasAcesso, setFormasAcesso] = useState<Set<string>>(new Set());
+  const [outrasPolit, setOutrasPolit] = useState("");
+  const [outrosAcesso, setOutrosAcesso] = useState("");
+  const [docsEnc, setDocsEnc] = useState<Set<string>>(new Set());
+  const [outrosDocs, setOutrosDocs] = useState("");
+
+  // Seção 3 — Rede Familiar
+  const [membros, setMembros] = useState<MembroFamilia[]>([
+    { nome: "", vinculo: "", idade: "", orientacao_sexual: "", deficiente: "", endereco: "", telefone: "" },
+  ]);
+
+  // Seção 4 — Programas Sociais
+  const [participaProg, setParticipaProg] = useState<"" | "nao" | "sim">("");
+  const [beneficiosRenda, setBeneficiosRenda] = useState<Record<string, string>>({});
+  const [outrosBenefNome, setOutrosBenefNome] = useState("");
+  const [outrosBenefVal, setOutrosBenefVal] = useState("");
+  const [participaEventuais, setParticipaEventuais] = useState<"" | "nao" | "sim">("");
+  const [beneficiosEventuais, setBeneficiosEventuais] = useState<Set<string>>(new Set());
+  const [cartaoTransporte, setCartaoTransporte] = useState<"" | "nao" | "sim">("");
+
+  // Seção 5 — Rede de Serviços
+  const [utilizaServicos, setUtilizaServicos] = useState<"" | "nao" | "sim">("");
+  const [servicosBasica, setServicosBasica] = useState<Set<string>>(new Set());
+  const [servicosMedia, setServicosMedia] = useState<Set<string>>(new Set());
+  const [servicosAlta, setServicosAlta] = useState<Set<string>>(new Set());
+
+  // Seção 6 — Situações Específicas
+  const [privLib, setPrivLib] = useState<"" | "nao" | "sim">("");
+  const [privLibItens, setPrivLibItens] = useState<SituacaoItem[]>([{ quem: "", situacao: "", localidade: "" }]);
+  const [medSocio, setMedSocio] = useState<"" | "nao" | "sim">("");
+  const [medSocioItens, setMedSocioItens] = useState<SituacaoItem[]>([{ quem: "", situacao: "", localidade: "" }]);
+  const [acolhInst, setAcolhInst] = useState<"" | "nao" | "sim">("");
+  const [acolhInstItens, setAcolhInstItens] = useState<SituacaoItem[]>([{ quem: "", situacao: "", localidade: "" }]);
+  const [instInternado, setInstInternado] = useState<"" | "nao" | "sim">("");
+  const [instInternadoItens, setInstInternadoItens] = useState<SituacaoItem[]>([{ quem: "", situacao: "", localidade: "" }]);
+
+  // Etapa 6 — Acompanhamento
+  const [registros, setRegistros] = useState<RegistroAcompanhamento[]>([]);
+  const [novoReg, setNovoReg] = useState<RegistroAcompanhamento>({ data: "", descricao: "", tecnico: "" });
 
   if (!residente) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
 
   const nomeExibido = residente.nome_social ?? residente.nome_completo;
-  const secaoIdx = SECOES.findIndex((s) => s.id === secaoAtiva);
-  const isUltima = secaoIdx === SECOES.length - 1;
+  const secaoIdx = SECOES_ETAPA1.findIndex((s) => s.id === secaoAtiva);
+  const isUltima  = secaoIdx === SECOES_ETAPA1.length - 1;
   const isPrimeira = secaoIdx === 0;
 
-  function avancar() {
-    if (!isUltima) setSecaoAtiva(SECOES[secaoIdx + 1].id);
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+
+  function toggleSet(set: Set<string>, value: string) {
+    const next = new Set(set);
+    if (next.has(value)) next.delete(value); else next.add(value);
+    return next;
   }
-  function voltar() {
-    if (!isPrimeira) setSecaoAtiva(SECOES[secaoIdx - 1].id);
+
+  function updateMembro(idx: number, field: keyof MembroFamilia, value: string) {
+    setMembros(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
   }
+
+  function updateSituacao(
+    items: SituacaoItem[],
+    setter: (v: SituacaoItem[]) => void,
+    idx: number,
+    field: keyof SituacaoItem,
+    val: string,
+  ) {
+    setter(items.map((it, i) => i === idx ? { ...it, [field]: val } : it));
+  }
+
+  function addSituacao(items: SituacaoItem[], setter: (v: SituacaoItem[]) => void) {
+    setter([...items, { quem: "", situacao: "", localidade: "" }]);
+  }
+
+  function handleAddRegistro() {
+    if (!novoReg.data || !novoReg.descricao) return;
+    setRegistros(prev => [...prev, novoReg]);
+    setNovoReg({ data: "", descricao: "", tecnico: "" });
+  }
+
+  // ─── Success screen ──────────────────────────────────────────────────────────
 
   if (salvo) {
     return (
@@ -45,8 +309,8 @@ export default function PiaPage() {
         <div className="size-16 rounded-full bg-green-100 flex items-center justify-center mx-auto">
           <CheckCircle2 className="size-8 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900">PIA salvo</h2>
-        <p className="text-sm text-gray-600">O Plano Individual de Atendimento foi registrado com sucesso.</p>
+        <h2 className="text-xl font-bold text-gray-900">PIA salvo com sucesso</h2>
+        <p className="text-sm text-gray-600">A ficha de identificação do primeiro atendimento foi registrada.</p>
         <Link
           href={`/painel/residentes/${id}?aba=pia`}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 transition-colors min-h-[44px] mt-4"
@@ -57,9 +321,11 @@ export default function PiaPage() {
     );
   }
 
+  // ─── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="max-w-2xl space-y-5">
-      {/* Voltar */}
+      {/* Back link */}
       <Link
         href={`/painel/residentes/${id}?aba=pia`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gray-900 transition-colors"
@@ -68,8 +334,11 @@ export default function PiaPage() {
         Prontuário
       </Link>
 
+      {/* Header */}
       <div>
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">PIA — Plano Individual de Atendimento</p>
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          PIA — Plano Individual de Atendimento
+        </p>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5">{nomeExibido}</h1>
         {pia && (
           <span className="inline-block mt-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">
@@ -78,234 +347,616 @@ export default function PiaPage() {
         )}
       </div>
 
-      {/* Progresso das seções */}
-      <div className="flex gap-1">
-        {SECOES.map((s, i) => (
+      {/* Etapa tabs */}
+      <div className="flex gap-2">
+        {[
+          { id: "etapa1" as Etapa, icon: <FileText className="size-4" />, label: "Etapa 1 — Ficha de Identificação", short: "Ficha de Entrada" },
+          { id: "etapa6" as Etapa, icon: <ClipboardList className="size-4" />, label: "Etapa 6 — Acompanhamento",         short: "Acompanhamento" },
+        ].map((e) => (
           <button
-            key={s.id}
-            onClick={() => setSecaoAtiva(s.id)}
-            className={`flex-1 h-1.5 rounded-full transition-colors ${
-              i < secaoIdx ? "bg-blue-500" :
-              i === secaoIdx ? "bg-blue-700" : "bg-gray-200"
+            key={e.id}
+            onClick={() => setEtapa(e.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+              etapa === e.id
+                ? "bg-blue-700 text-white shadow-sm"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
-            title={s.label}
-          />
+          >
+            {e.icon}
+            <span className="hidden sm:inline">{e.label}</span>
+            <span className="sm:hidden">{e.short}</span>
+          </button>
         ))}
       </div>
 
-      {/* Header da seção */}
-      <div className="flex items-center gap-2 text-sm font-medium text-blue-700">
-        {SECOES[secaoIdx].icon}
-        <span>Seção {secaoIdx + 1} de {SECOES.length} — {SECOES[secaoIdx].label}</span>
-      </div>
+      {/* ══════════════════════════════════════════════════════════════════════
+          ETAPA 1 — FICHA DE IDENTIFICAÇÃO DO PRIMEIRO ATENDIMENTO
+      ═════════════════════════════════════════════════════════════════════ */}
+      {etapa === "etapa1" && (
+        <>
+          {/* Step progress */}
+          <div className="flex gap-1">
+            {SECOES_ETAPA1.map((s, i) => (
+              <button
+                key={s.id}
+                onClick={() => setSecaoAtiva(s.id)}
+                title={s.label}
+                className={`flex-1 h-1.5 rounded-full transition-colors ${
+                  i < secaoIdx ? "bg-blue-400" :
+                  i === secaoIdx ? "bg-blue-700" : "bg-gray-200"
+                }`}
+              />
+            ))}
+          </div>
 
-      {/* ─── SEÇÕES ─── */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
-
-        {/* Identificação complementar */}
-        {secaoAtiva === "identificacao" && (
-          <>
+          {/* Section header */}
+          <div className="flex items-center gap-2.5">
+            <span className="size-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {SECOES_ETAPA1[secaoIdx].numero}
+            </span>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Naturalidade</label>
-              <input type="text" defaultValue={pia?.secao_identificacao?.naturalidade as string ?? ""}
-                placeholder="Cidade/UF"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
+                Seção {secaoIdx + 1} de {SECOES_ETAPA1.length}
+              </p>
+              <p className="text-sm font-semibold text-gray-900 leading-tight">
+                {SECOES_ETAPA1[secaoIdx].label}
+              </p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          </div>
+
+          {/* ── Section content ── */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
+
+            {/* ─── 1. DADOS DE IDENTIFICAÇÃO ─── */}
+            {secaoAtiva === "identificacao" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <FieldLabel>Nome Social</FieldLabel>
+                    <input type="text" defaultValue={residente.nome_social ?? ""} placeholder="Nome social (se houver)" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>Apelido</FieldLabel>
+                    <input type="text" placeholder="Apelido" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>Naturalidade</FieldLabel>
+                    <input type="text" defaultValue={(pia?.secao_identificacao?.naturalidade as string) ?? ""} placeholder="Cidade/UF" className={inputCls} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="col-span-2 sm:col-span-1">
+                    <FieldLabel>Sexo</FieldLabel>
+                    <select className={selectCls}>
+                      <option value="">Selecionar…</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1">
+                    <FieldLabel>Orientação Sexual</FieldLabel>
+                    <select className={selectCls}>
+                      <option value="">Selecionar…</option>
+                      <option value="heterossexual">Heterossexual</option>
+                      <option value="homossexual">Homossexual</option>
+                      <option value="bissexual">Bissexual</option>
+                      <option value="nao_informado">Não informado</option>
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Cor / Raça</FieldLabel>
+                    <select className={selectCls}>
+                      <option value="">Selecionar…</option>
+                      <option value="branca">Branca</option>
+                      <option value="preta">Preta</option>
+                      <option value="parda">Parda</option>
+                      <option value="amarela">Amarela</option>
+                      <option value="indigena">Indígena</option>
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Estado Civil</FieldLabel>
+                    <select defaultValue={(pia?.secao_identificacao?.situacao_civil as string) ?? ""} className={selectCls}>
+                      <option value="">Selecionar…</option>
+                      <option value="solteiro">Solteiro(a)</option>
+                      <option value="casado">Casado(a)</option>
+                      <option value="divorciado">Divorciado(a)</option>
+                      <option value="viuvo">Viúvo(a)</option>
+                      <option value="uniao_estavel">União estável</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <FieldLabel>RG</FieldLabel>
+                    <input type="text" placeholder="Número do RG" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>CPF</FieldLabel>
+                    <input type="text" placeholder="000.000.000-00" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>NIS / PIS</FieldLabel>
+                    <input type="text" placeholder="Número NIS" className={inputCls} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>CPTS (Carteira de Trabalho)</FieldLabel>
+                    <input type="text" placeholder="Número" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>Título de Eleitor</FieldLabel>
+                    <input type="text" placeholder="Número" className={inputCls} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Hygia (cartão municipal saúde)</FieldLabel>
+                    <input type="text" placeholder="Número Hygia" className={inputCls} />
+                  </div>
+                  <div>
+                    <FieldLabel>Cartão SUS (CNS)</FieldLabel>
+                    <input type="text" placeholder="Número CNS" className={inputCls} />
+                  </div>
+                </div>
+
+                <div>
+                  <FieldLabel>Local de maior tempo de permanência</FieldLabel>
+                  <input type="text" placeholder="Ex: Praça Quinze, Centro…" className={inputCls} />
+                </div>
+                <div>
+                  <FieldLabel>Local de pernoite</FieldLabel>
+                  <input type="text" placeholder="Onde dormia antes do acolhimento" className={inputCls} />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <FieldLabel>Escolaridade</FieldLabel>
+                    <select defaultValue={(pia?.secao_identificacao?.escolaridade as string) ?? ""} className={selectCls}>
+                      <option value="">Selecionar…</option>
+                      <option value="sem_escolaridade">Sem escolaridade</option>
+                      <option value="fund_incompleto">Fund. incompleto</option>
+                      <option value="fund_completo">Fund. completo</option>
+                      <option value="medio_incompleto">Médio incompleto</option>
+                      <option value="medio_completo">Médio completo</option>
+                      <option value="superior_incompleto">Superior incompleto</option>
+                      <option value="superior_completo">Superior completo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <FieldLabel>Profissão / ocupação anterior</FieldLabel>
+                    <input type="text" defaultValue={(pia?.secao_identificacao?.profissao_anterior as string) ?? ""} placeholder="Última ocupação" className={inputCls} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ─── 2. PROCEDÊNCIA ─── */}
+            {secaoAtiva === "procedencia" && (
+              <>
+                <div>
+                  <SectionLabel>2.1. Forma de acesso — como chegou ao serviço</SectionLabel>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {FORMAS_ACESSO.map((fa) => (
+                      <CheckboxOption
+                        key={fa}
+                        label={fa}
+                        checked={formasAcesso.has(fa)}
+                        onChange={() => setFormasAcesso(toggleSet(formasAcesso, fa))}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1.5">Outras políticas públicas. Qual?</label>
+                      <input type="text" value={outrasPolit} onChange={e => setOutrasPolit(e.target.value)}
+                        placeholder="Especifique" className={inputCls} />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-gray-600 mb-1.5">Outros. Qual?</label>
+                      <input type="text" value={outrosAcesso} onChange={e => setOutrosAcesso(e.target.value)}
+                        placeholder="Especifique" className={inputCls} />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <SectionLabel>2.2. Encaminhamento realizado com documentos abaixo</SectionLabel>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {DOCS_ENCAMINHAMENTO.map((doc) => (
+                      <CheckboxOption
+                        key={doc}
+                        label={doc}
+                        checked={docsEnc.has(doc)}
+                        onChange={() => setDocsEnc(toggleSet(docsEnc, doc))}
+                      />
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <label className="block text-sm text-gray-600 mb-1.5">Outros documentos</label>
+                    <input type="text" value={outrosDocs} onChange={e => setOutrosDocs(e.target.value)}
+                      placeholder="Especifique" className={inputCls} />
+                  </div>
+                </div>
+
+                <div>
+                  <SectionLabel>2.3. Motivo de procura / encaminhamento</SectionLabel>
+                  <textarea
+                    rows={4}
+                    placeholder="Descreva o motivo principal que levou ao encaminhamento ou à procura espontânea…"
+                    className={textareaCls}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* ─── 3. REDE FAMILIAR E/OU APOIO ─── */}
+            {secaoAtiva === "rede_familiar" && (
+              <>
+                <p className="text-sm text-gray-500">
+                  Liste os familiares e pessoas de referência do acolhido.
+                </p>
+                <div className="space-y-3">
+                  {membros.map((membro, idx) => (
+                    <div key={idx} className="rounded-xl border border-gray-200 bg-gray-50/40 p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                          Familiar {idx + 1}
+                        </span>
+                        {membros.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => setMembros(prev => prev.filter((_, i) => i !== idx))}
+                            className="size-7 flex items-center justify-center rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="sm:col-span-2">
+                          <FieldLabel>Nome</FieldLabel>
+                          <input type="text" value={membro.nome} onChange={e => updateMembro(idx, "nome", e.target.value)}
+                            placeholder="Nome completo" className={inputCls} />
+                        </div>
+                        <div>
+                          <FieldLabel>Vínculo / Parentesco</FieldLabel>
+                          <input type="text" value={membro.vinculo} onChange={e => updateMembro(idx, "vinculo", e.target.value)}
+                            placeholder="Mãe, irmão, amigo…" className={inputCls} />
+                        </div>
+                        <div>
+                          <FieldLabel>Idade</FieldLabel>
+                          <input type="text" value={membro.idade} onChange={e => updateMembro(idx, "idade", e.target.value)}
+                            placeholder="Idade" className={inputCls} />
+                        </div>
+                        <div>
+                          <FieldLabel>Orientação Sexual</FieldLabel>
+                          <input type="text" value={membro.orientacao_sexual} onChange={e => updateMembro(idx, "orientacao_sexual", e.target.value)}
+                            placeholder="Se informado" className={inputCls} />
+                        </div>
+                        <div>
+                          <FieldLabel>Deficiência?</FieldLabel>
+                          <select value={membro.deficiente} onChange={e => updateMembro(idx, "deficiente", e.target.value)} className={selectCls}>
+                            <option value="">Selecionar…</option>
+                            <option value="nao">Não</option>
+                            <option value="sim">Sim</option>
+                          </select>
+                        </div>
+                        <div>
+                          <FieldLabel>Endereço</FieldLabel>
+                          <input type="text" value={membro.endereco} onChange={e => updateMembro(idx, "endereco", e.target.value)}
+                            placeholder="Endereço" className={inputCls} />
+                        </div>
+                        <div>
+                          <FieldLabel>Telefone(s)</FieldLabel>
+                          <input type="text" value={membro.telefone} onChange={e => updateMembro(idx, "telefone", e.target.value)}
+                            placeholder="(16) 9…" className={inputCls} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setMembros(prev => [...prev, { nome: "", vinculo: "", idade: "", orientacao_sexual: "", deficiente: "", endereco: "", telefone: "" }])}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200 py-3 text-sm text-gray-500 hover:border-blue-300 hover:text-blue-600 hover:bg-blue-50/30 transition-colors"
+                  >
+                    <Plus className="size-4" />
+                    Adicionar familiar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* ─── 4. PROGRAMAS SOCIAIS ─── */}
+            {secaoAtiva === "programas_sociais" && (
+              <>
+                <div>
+                  <SectionLabel>4.1. Participa de programas sociais e/ou benefício de transferência de renda?</SectionLabel>
+                  <div className="flex flex-col gap-2.5">
+                    <RadioOption label="Não" checked={participaProg === "nao"} onChange={() => setParticipaProg("nao")} />
+                    <RadioOption label="Sim, indique abaixo:" checked={participaProg === "sim"} onChange={() => setParticipaProg("sim")} />
+                  </div>
+                  {participaProg === "sim" && (
+                    <div className="mt-4 space-y-3 pl-1">
+                      {BENEFICIOS_RENDA.map((b) => (
+                        <div key={b.id} className="flex items-center gap-3">
+                          <CheckboxOption
+                            label={b.label}
+                            checked={b.id in beneficiosRenda}
+                            onChange={(v) => {
+                              setBeneficiosRenda(prev => {
+                                const next = { ...prev };
+                                if (v) next[b.id] = ""; else delete next[b.id];
+                                return next;
+                              });
+                            }}
+                          />
+                          {b.id in beneficiosRenda && (
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <span className="text-sm text-gray-400">R$</span>
+                              <input
+                                type="text"
+                                placeholder="Valor"
+                                value={beneficiosRenda[b.id]}
+                                onChange={e => setBeneficiosRenda(prev => ({ ...prev, [b.id]: e.target.value }))}
+                                className={`w-28 ${inputSmCls}`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-sm text-gray-600">Outros:</span>
+                        <input type="text" value={outrosBenefNome} onChange={e => setOutrosBenefNome(e.target.value)}
+                          placeholder="Qual?" className={`flex-1 min-w-[100px] ${inputSmCls}`} />
+                        <span className="text-sm text-gray-400">R$</span>
+                        <input type="text" value={outrosBenefVal} onChange={e => setOutrosBenefVal(e.target.value)}
+                          placeholder="Valor" className={`w-24 ${inputSmCls}`} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <SectionLabel>4.2. Recebe / recebeu benefício assistencial e/ou eventual?</SectionLabel>
+                  <div className="flex flex-col gap-2.5">
+                    <RadioOption label="Não" checked={participaEventuais === "nao"} onChange={() => setParticipaEventuais("nao")} />
+                    <RadioOption label="Sim, especifique:" checked={participaEventuais === "sim"} onChange={() => setParticipaEventuais("sim")} />
+                  </div>
+                  {participaEventuais === "sim" && (
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2.5 pl-1">
+                      {BENEFICIOS_EVENTUAIS.map((b) => (
+                        <CheckboxOption
+                          key={b}
+                          label={b}
+                          checked={beneficiosEventuais.has(b)}
+                          onChange={() => setBeneficiosEventuais(toggleSet(beneficiosEventuais, b))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <SectionLabel>4.3. Possui Carteira de Transporte Gratuito?</SectionLabel>
+                  <div className="flex gap-6">
+                    <RadioOption label="Não" checked={cartaoTransporte === "nao"} onChange={() => setCartaoTransporte("nao")} />
+                    <RadioOption label="Sim" checked={cartaoTransporte === "sim"} onChange={() => setCartaoTransporte("sim")} />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* ─── 5. REDE DE SERVIÇOS SOCIOASSISTENCIAIS ─── */}
+            {secaoAtiva === "rede_servicos" && (
+              <>
+                <div>
+                  <SectionLabel>5.1. Utiliza os serviços da rede socioassistencial?</SectionLabel>
+                  <div className="flex flex-col gap-2.5">
+                    <RadioOption label="Não" checked={utilizaServicos === "nao"} onChange={() => setUtilizaServicos("nao")} />
+                    <RadioOption label="Sim, indique abaixo:" checked={utilizaServicos === "sim"} onChange={() => setUtilizaServicos("sim")} />
+                  </div>
+                </div>
+
+                {utilizaServicos === "sim" && (
+                  <div className="space-y-5">
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-2.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Proteção Social Básica
+                      </p>
+                      {SERVICOS_BASICA.map((s) => (
+                        <CheckboxOption key={s} label={s} checked={servicosBasica.has(s)}
+                          onChange={() => setServicosBasica(toggleSet(servicosBasica, s))} />
+                      ))}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-2.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Proteção Social Especial — Média Complexidade
+                      </p>
+                      {SERVICOS_MEDIA.map((s) => (
+                        <CheckboxOption key={s} label={s} checked={servicosMedia.has(s)}
+                          onChange={() => setServicosMedia(toggleSet(servicosMedia, s))} />
+                      ))}
+                    </div>
+
+                    <div className="rounded-xl border border-gray-100 p-4 space-y-2.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                        Proteção Social Especial — Alta Complexidade
+                      </p>
+                      {SERVICOS_ALTA.map((s) => (
+                        <CheckboxOption key={s} label={s} checked={servicosAlta.has(s)}
+                          onChange={() => setServicosAlta(toggleSet(servicosAlta, s))} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ─── 6. SITUAÇÕES ESPECÍFICAS ─── */}
+            {secaoAtiva === "situacoes" && (
+              <div className="space-y-5">
+                <SituacaoBlock
+                  titulo="6.1. Já esteve ou alguém da família está em privação de liberdade?"
+                  nota="Regime fechado, semiaberto, aguardando julgamento, condenado"
+                  value={privLib}
+                  onChange={setPrivLib}
+                  items={privLibItens}
+                  onUpdate={(i, f, v) => updateSituacao(privLibItens, setPrivLibItens, i, f, v)}
+                  onAdd={() => addSituacao(privLibItens, setPrivLibItens)}
+                />
+                <SituacaoBlock
+                  titulo="6.2. Existem adolescentes na família em cumprimento de Medidas Socioeducativas?"
+                  nota="Advertência, Prestação de Serviço à Comunidade, Liberdade Assistida, Semiliberdade ou Internação (ECA art. 112)"
+                  value={medSocio}
+                  onChange={setMedSocio}
+                  items={medSocioItens}
+                  onUpdate={(i, f, v) => updateSituacao(medSocioItens, setMedSocioItens, i, f, v)}
+                  onAdd={() => addSituacao(medSocioItens, setMedSocioItens)}
+                />
+                <SituacaoBlock
+                  titulo="6.3. Algum familiar encontra-se em Acolhimento Institucional?"
+                  nota="ILP Idosos, Casa Lar, Acolhimento Institucional, Casa de Passagem, Residência Inclusiva"
+                  value={acolhInst}
+                  onChange={setAcolhInst}
+                  items={acolhInstItens}
+                  onUpdate={(i, f, v) => updateSituacao(acolhInstItens, setAcolhInstItens, i, f, v)}
+                  onAdd={() => addSituacao(acolhInstItens, setAcolhInstItens)}
+                />
+                <SituacaoBlock
+                  titulo="6.4. Algum familiar encontra-se institucionalizado / internado?"
+                  nota="Hospital, Residência Terapêutica, Clínicas, entre outros"
+                  value={instInternado}
+                  onChange={setInstInternado}
+                  items={instInternadoItens}
+                  onUpdate={(i, f, v) => updateSituacao(instInternadoItens, setInstInternadoItens, i, f, v)}
+                  onAdd={() => addSituacao(instInternadoItens, setInstInternadoItens)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Etapa 1 navigation */}
+          <div className="flex gap-3">
+            {!isPrimeira && (
+              <button
+                type="button"
+                onClick={() => setSecaoAtiva(SECOES_ETAPA1[secaoIdx - 1].id)}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-background px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors min-h-[48px]"
+              >
+                Anterior
+              </button>
+            )}
+            {!isUltima ? (
+              <button
+                type="button"
+                onClick={() => setSecaoAtiva(SECOES_ETAPA1[secaoIdx + 1].id)}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors min-h-[48px]"
+              >
+                Próxima seção
+                <ChevronRight className="size-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setSalvo(true)}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px]"
+              >
+                <Save className="size-4" />
+                Salvar Etapa 1
+              </button>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          ETAPA 6 — REGISTRO DO ACOMPANHAMENTO
+      ═════════════════════════════════════════════════════════════════════ */}
+      {etapa === "etapa6" && (
+        <div className="space-y-4">
+          {/* New entry form */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-4">
+            <p className="text-sm font-semibold text-gray-800">Novo registro de atendimento</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Situação civil</label>
-                <select defaultValue={pia?.secao_identificacao?.situacao_civil as string ?? ""}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">Selecionar…</option>
-                  <option value="solteiro">Solteiro(a)</option>
-                  <option value="casado">Casado(a)</option>
-                  <option value="divorciado">Divorciado(a)</option>
-                  <option value="viuvo">Viúvo(a)</option>
-                  <option value="uniao_estavel">União estável</option>
-                </select>
+                <FieldLabel>Data do Atendimento</FieldLabel>
+                <input type="date" value={novoReg.data}
+                  onChange={e => setNovoReg(prev => ({ ...prev, data: e.target.value }))}
+                  className={inputCls} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Escolaridade</label>
-                <select defaultValue={pia?.secao_identificacao?.escolaridade as string ?? ""}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                  <option value="">Selecionar…</option>
-                  <option value="Sem escolaridade">Sem escolaridade</option>
-                  <option value="Ensino Fundamental Incompleto">Fund. incompleto</option>
-                  <option value="Ensino Fundamental Completo">Fund. completo</option>
-                  <option value="Ensino Médio Incompleto">Médio incompleto</option>
-                  <option value="Ensino Médio Completo">Médio completo</option>
-                  <option value="Ensino Superior Incompleto">Superior incompleto</option>
-                  <option value="Ensino Superior Completo">Superior completo</option>
-                </select>
+                <FieldLabel>Nome do Técnico Responsável</FieldLabel>
+                <input type="text" value={novoReg.tecnico}
+                  onChange={e => setNovoReg(prev => ({ ...prev, tecnico: e.target.value }))}
+                  placeholder="Nome do técnico" className={inputCls} />
+              </div>
+              <div className="sm:col-span-2">
+                <FieldLabel>Descrição Sumária</FieldLabel>
+                <textarea
+                  rows={3}
+                  value={novoReg.descricao}
+                  onChange={e => setNovoReg(prev => ({ ...prev, descricao: e.target.value }))}
+                  placeholder="Descreva o atendimento realizado…"
+                  className={textareaCls}
+                />
               </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Profissão / ocupação anterior</label>
-              <input type="text" defaultValue={pia?.secao_identificacao?.profissao_anterior as string ?? ""}
-                placeholder="Última ocupação antes da situação de rua"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </>
-        )}
+            <button
+              type="button"
+              onClick={handleAddRegistro}
+              disabled={!novoReg.data || !novoReg.descricao}
+              className="inline-flex items-center gap-2 rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Plus className="size-4" />
+              Adicionar registro
+            </button>
+          </div>
 
-        {/* Histórico de vida */}
-        {secaoAtiva === "historico" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Histórico da situação de rua</label>
-              <textarea rows={4} defaultValue={pia?.secao_historico_vida?.historico_rua as string ?? ""}
-                placeholder="Como chegou à situação de rua, trajetória, eventos relevantes…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+          {/* Registros list */}
+          {registros.length > 0 ? (
+            <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Histórico de atendimentos — {registros.length}{" "}
+                  {registros.length === 1 ? "entrada" : "entradas"}
+                </p>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {registros.map((r, idx) => (
+                  <div key={idx} className="px-5 py-4 flex items-start gap-4">
+                    <span className="size-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                      {idx + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900 leading-snug">{r.descricao}</p>
+                      {r.tecnico && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{r.tecnico}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
+                      {new Date(r.data + "T12:00:00").toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Situações de vulnerabilidade identificadas</label>
-              <textarea rows={3} defaultValue={(pia?.secao_historico_vida?.situacoes_vulnerabilidade as string[])?.join(", ") ?? ""}
-                placeholder="Ex: dependência química, desemprego prolongado, violência doméstica…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+          ) : (
+            <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+              <ClipboardList className="size-10 text-gray-200 mx-auto mb-3" />
+              <p className="text-sm text-gray-400">Nenhum registro de acompanhamento ainda.</p>
+              <p className="text-xs text-gray-300 mt-1">Use o formulário acima para adicionar o primeiro atendimento.</p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Histórico de violência</label>
-              <textarea rows={2} defaultValue={pia?.secao_historico_vida?.historico_violencia as string ?? ""}
-                placeholder="Vitimização, violência sofrida ou praticada (se relevante e com consentimento)…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-          </>
-        )}
-
-        {/* Saúde */}
-        {secaoAtiva === "saude" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Condições de saúde crônicas</label>
-              <input type="text" defaultValue={pia?.secao_saude?.condicoes_cronicas as string ?? ""}
-                placeholder="Hipertensão, diabetes, epilepsia, etc."
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Medicamentos em uso</label>
-              <input type="text" defaultValue={pia?.secao_saude?.medicamentos as string ?? ""}
-                placeholder="Nome, dose e frequência"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tratamento de saúde mental</label>
-              <input type="text" defaultValue={pia?.secao_saude?.tratamento_saude_mental as string ?? ""}
-                placeholder="CAPS, psiquiatra, psicólogo, etc."
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Uso de substâncias psicoativas</label>
-              <input type="text" defaultValue={pia?.secao_saude?.uso_substancias as string ?? ""}
-                placeholder="Álcool, crack, múltiplas, em remissão, etc."
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-          </>
-        )}
-
-        {/* Objetivos */}
-        {secaoAtiva === "objetivos" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Objetivo principal do acolhimento</label>
-              <input type="text" defaultValue={pia?.secao_objetivos?.objetivo_principal as string ?? ""}
-                placeholder="O que o acolhido quer alcançar ao final do programa"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de curto prazo (até 3 meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_curto_prazo as string[])?.join("\n") ?? ""}
-                placeholder="Uma meta por linha"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de médio prazo (3-6 meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_medio_prazo as string[])?.join("\n") ?? ""}
-                placeholder="Uma meta por linha"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de longo prazo (6+ meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_longo_prazo as string[])?.join("\n") ?? ""}
-                placeholder="Uma meta por linha"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-          </>
-        )}
-
-        {/* Plano de ação */}
-        {secaoAtiva === "plano" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Ações previstas no plano de atendimento</label>
-              <textarea rows={6} defaultValue={(pia?.secao_plano_acao?.acoes as string[])?.join("\n") ?? ""}
-                placeholder="Uma ação por linha. Ex: Acompanhamento semanal no CAPS; Busca de emprego via SINE…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-          </>
-        )}
-
-        {/* Rede de apoio */}
-        {secaoAtiva === "rede" && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede familiar</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_familiar as string ?? ""}
-                placeholder="Vínculos familiares ativos e situação do relacionamento"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede institucional</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_institucional as string ?? ""}
-                placeholder="CAPS, CRAS, CREAS, serviços de saúde, assistência social…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede comunitária</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_comunitaria as string ?? ""}
-                placeholder="Igrejas, grupos de apoio, vizinhança, etc."
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Observações gerais</label>
-              <textarea rows={3} defaultValue={pia?.observacoes_gerais ?? ""}
-                placeholder="Impressões da equipe, pontos de atenção, evolução observada…"
-                className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Navegação entre seções */}
-      <div className="flex gap-3">
-        {!isPrimeira && (
-          <button
-            type="button"
-            onClick={voltar}
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-background px-5 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors min-h-[48px]"
-          >
-            Anterior
-          </button>
-        )}
-
-        {!isUltima ? (
-          <button
-            type="button"
-            onClick={avancar}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors min-h-[48px]"
-          >
-            Próxima seção
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setSalvo(true)}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px]"
-          >
-            <Save className="size-4" />
-            Salvar PIA
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

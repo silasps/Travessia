@@ -24,15 +24,15 @@ export default async function StaffLayout({
         <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-sidebar-border bg-sidebar z-30">
           <SidebarContent role={"super_admin" as StaffRole} userName="Dev Admin" />
         </aside>
-        <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
-          <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex items-center gap-3">
-            <div className="flex items-center gap-2 lg:hidden">
+        <div className="flex-1 min-w-0 lg:pl-64 flex flex-col min-h-screen overflow-x-hidden">
+          <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
               <div className="w-7 h-7 bg-sky-500 rounded-lg flex items-center justify-center flex-shrink-0">
                 <span className="text-white text-xs font-bold">PT</span>
               </div>
-              <p className="text-sm font-semibold text-foreground">Projeto Travessia</p>
+              <p className="truncate text-sm font-semibold text-foreground">Projeto Travessia</p>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex min-w-0 items-center gap-2">
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
                 DEV — sem banco
               </span>
@@ -109,15 +109,15 @@ export default async function StaffLayout({
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:border-r border-sidebar-border bg-sidebar z-30">
         <SidebarContent role={effectiveRole} userName={userName} />
       </aside>
-      <div className="flex-1 lg:pl-64 flex flex-col min-h-screen">
-        <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex items-center gap-3">
-          <div className="flex items-center gap-2 lg:hidden">
+      <div className="flex-1 min-w-0 lg:pl-64 flex flex-col min-h-screen overflow-x-hidden">
+        <header className="sticky top-0 z-20 bg-background border-b border-border px-4 h-14 flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-2 lg:hidden">
             <div className="w-7 h-7 bg-sky-500 rounded-lg flex items-center justify-center flex-shrink-0">
               <span className="text-white text-xs font-bold">PT</span>
             </div>
-            <p className="text-sm font-semibold text-foreground">Projeto Travessia</p>
+            <p className="truncate text-sm font-semibold text-foreground">Projeto Travessia</p>
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 items-center gap-2">
             {realRole === "super_admin" && (
               <RolePreviewSelector
                 currentPreview={previewRole}
@@ -131,7 +131,7 @@ export default async function StaffLayout({
 
         {previewRole && <RolePreviewBanner previewRole={previewRole} />}
 
-        <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full pb-20 lg:pb-6">
+        <main className="flex-1 p-4 sm:p-6 max-w-7xl mx-auto w-full pb-20 lg:pb-6 overflow-x-clip">
           {children}
         </main>
       </div>

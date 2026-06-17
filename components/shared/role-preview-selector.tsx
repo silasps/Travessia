@@ -92,7 +92,7 @@ export function RolePreviewSelector({
         <DropdownMenuTrigger
           disabled={isPending}
           className={cn(
-            "inline-flex items-center gap-1.5 text-xs h-8 rounded-md px-3 border font-medium transition-colors max-w-64",
+            "inline-flex h-8 min-w-0 max-w-[min(11.5rem,calc(100vw_-_5.5rem))] items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition-colors sm:max-w-64",
             currentPreview || currentPreviewResidente
               ? "border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100"
               : "border-input bg-transparent text-gray-600 hover:bg-gray-50"

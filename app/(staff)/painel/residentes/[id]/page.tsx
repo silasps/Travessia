@@ -120,7 +120,7 @@ export default async function ResidenteDetailPage({
   const nomeExibido = residente.nome_social ?? residente.nome_completo;
 
   return (
-    <div className="space-y-0">
+    <div className="min-w-0 space-y-0">
       {/* Breadcrumb + back */}
       <div className="mb-4">
         <Link href="/painel/residentes" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -130,59 +130,65 @@ export default async function ResidenteDetailPage({
       </div>
 
       {/* Header do prontuário */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 sm:p-6 mb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+      <div className="mb-4 min-w-0 overflow-hidden rounded-2xl border border-gray-100 bg-white p-4 sm:p-6">
+        <div className="flex min-w-0 items-start gap-3">
           {/* Avatar placeholder */}
-          <div className="w-16 h-16 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-            <User className="size-8 text-blue-600" />
+          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+            <User className="size-6 sm:size-8 text-blue-600" />
           </div>
 
-          <div className="flex-1 min-w-0 space-y-2">
-            <div className="flex flex-wrap items-start gap-2">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">{nomeExibido}</h1>
-              <StatusBadge status={residente.status} />
+          <div className="flex-1 min-w-0">
+            <div className="flex min-w-0 items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <h1 className="min-w-0 break-words text-base font-bold leading-tight text-gray-900 sm:text-xl">{nomeExibido}</h1>
+                  <StatusBadge status={residente.status} />
+                </div>
+                {residente.nome_social && (
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">{residente.nome_completo}</p>
+                )}
+              </div>
+              <Link
+                href={`/painel/residentes/${id}/editar`}
+                className="inline-flex items-center gap-1 rounded-xl border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-muted transition-colors flex-shrink-0"
+              >
+                <Edit className="size-3.5" />
+                <span className="hidden sm:inline">Editar</span>
+              </Link>
             </div>
-            {residente.nome_social && (
-              <p className="text-sm text-muted-foreground">{residente.nome_completo}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
-              <span className="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded">
+
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-xs text-gray-600">
+              <span className="font-mono bg-gray-100 px-2 py-0.5 rounded shrink-0">
                 {residente.numero_prontuario}
               </span>
               <FaseBadge fase={residente.fase_atual} />
-              <span className="flex items-center gap-1">
-                <Calendar className="size-3.5" />
-                Entrada: {formatDate(residente.data_entrada)}
+              <span className="flex min-w-0 items-center gap-1 text-muted-foreground">
+                <Calendar className="size-3" />
+                {formatDate(residente.data_entrada)}
+                <span className="text-gray-300 mx-0.5">·</span>
+                {formatTempoNoPrograma(residente.data_entrada)}
               </span>
-              <span>{formatTempoNoPrograma(residente.data_entrada)}</span>
             </div>
           </div>
-
-          <Link
-            href={`/painel/residentes/${id}/editar`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition-colors min-h-[36px] self-start"
-          >
-            <Edit className="size-3.5" />
-            Editar
-          </Link>
         </div>
       </div>
 
       {/* Tabs — scroll horizontal mobile */}
-      <div className="sticky top-14 z-10 bg-background -mx-4 sm:-mx-6 px-4 sm:px-6 border-b border-border mb-0">
-        <div className="flex overflow-x-auto gap-0 scrollbar-none">
+      <div className="sticky top-14 z-10 mb-0 w-full max-w-full overflow-hidden border-b border-border bg-background">
+        <div className="grid grid-cols-3 gap-1 py-2 sm:flex sm:gap-0 sm:overflow-x-auto sm:py-0">
           {TABS.map((tab) => (
             <Link
               key={tab.id}
               href={`/painel/residentes/${id}?aba=${tab.id}`}
-              className={`flex items-center gap-1.5 px-3 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              title={tab.label}
+              className={`flex min-w-0 items-center justify-center gap-1 rounded-lg border px-2 py-2 text-center transition-colors sm:shrink-0 sm:justify-start sm:whitespace-nowrap sm:rounded-none sm:border-x-0 sm:border-t-0 sm:border-b-2 sm:px-3 sm:py-3 ${
                 aba === tab.id
-                  ? "border-blue-600 text-blue-700"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
+                  ? "border-blue-100 bg-blue-50 text-blue-700 sm:border-blue-600 sm:bg-transparent"
+                  : "border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground sm:hover:bg-transparent"
               }`}
             >
-              <tab.icon className="size-4" />
-              {tab.label}
+              <tab.icon className="size-3.5 sm:size-4 flex-shrink-0" />
+              <span className="min-w-0 truncate text-[10px] font-medium sm:text-sm">{tab.label}</span>
             </Link>
           ))}
         </div>
@@ -193,7 +199,7 @@ export default async function ResidenteDetailPage({
 
         {/* ── ABA: Dados ── */}
         {aba === "dados" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
             <Section title="Identificação">
               <InfoRow label="Nome completo" value={residente.nome_completo} />
               {residente.nome_social && <InfoRow label="Nome social" value={residente.nome_social} />}
@@ -704,17 +710,17 @@ export default async function ResidenteDetailPage({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
-      <div className="space-y-2">{children}</div>
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">{title}</h3>
+      <div className="divide-y divide-gray-50">{children}</div>
     </div>
   );
 }
 
 function InfoRow({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-1">
-      <span className="text-xs text-muted-foreground flex-shrink-0 min-w-[120px]">{label}</span>
-      <span className={`text-sm text-gray-900 text-right ${mono ? "font-mono text-xs" : ""}`}>
+    <div className="py-1.5 sm:flex sm:items-start sm:justify-between sm:gap-4">
+      <span className="block text-[11px] text-muted-foreground sm:flex-shrink-0 sm:min-w-[120px]">{label}</span>
+      <span className={`block text-sm text-gray-900 mt-0.5 sm:mt-0 sm:text-right break-words min-w-0 ${mono ? "font-mono text-xs" : ""}`}>
         {value}
       </span>
     </div>
