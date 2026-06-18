@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
 
-export function BuscaInput({ defaultValue }: { defaultValue: string }) {
+export function BuscaInput({ defaultValue, placeholder }: { defaultValue: string; placeholder?: string }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -47,7 +47,7 @@ export function BuscaInput({ defaultValue }: { defaultValue: string }) {
         name="q"
         value={value}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Buscar por nome ou prontuário..."
+        placeholder={placeholder ?? "Buscar por nome ou prontuário..."}
         className="w-full pl-9 pr-3 h-10 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
       />
     </div>

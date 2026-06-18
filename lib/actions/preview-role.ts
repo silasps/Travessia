@@ -56,7 +56,7 @@ export async function setPreviewResidente(residenteId: string) {
     .eq("user_id", user.id)
     .single();
 
-  if (roleRow?.role !== "super_admin") return;
+  if (!roleRow) return;
 
   const { data: residente } = await supabase
     .from("residentes")

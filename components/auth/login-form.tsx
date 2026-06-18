@@ -6,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock } from "lucide-react";
+import { Loader2, Mail, Lock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +19,17 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>;
 
-export function LoginForm() {
+const ERROR_MESSAGES: Record<string, string> = {
+  nao_cadastrado: "Usuário não cadastrado. Entre em contato com a coordenação.",
+  auth: "Falha na autenticação. Tente novamente.",
+};
+
+export function LoginForm({ errorCode }: { errorCode?: string }) {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
   });
 
@@ -41,13 +46,14 @@ export function LoginForm() {
       return;
     }
 
-    // Redirecionar — middleware detecta a sessão e direciona para área certa
+    // (staff)/layout.tsx redireciona não-staff para /meu-espaco automaticamente
     router.replace("/painel");
   }
 
-  async function handleMagicLink(email: string) {
+  async function handleMagicLink() {
+    const email = getValues("email");
     if (!email) {
-      toast.error("Informe seu e-mail para receber o link de acesso.");
+      toast.error("Informe seu e-mail antes de solicitar o link.");
       return;
     }
     setLoading(true);
@@ -60,77 +66,72 @@ export function LoginForm() {
     if (error) {
       toast.error("Não foi possível enviar o link. Tente novamente.");
     } else {
-      toast.success("Link enviado para seu e-mail! Verifique a caixa de entrada.");
+      toast.success("Link enviado! Verifique sua caixa de entrada.");
     }
   }
 
+  const errorMsg = errorCode ? ERROR_MESSAGES[errorCode] : null;
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="email">E-mail</Label>
-        <div className="relative">
-          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
-          <Input
-            id="email"
-            type="email"
-            placeholder="seu@email.com"
-            className="pl-9"
-            autoComplete="email"
-            {...register("email")}
-          />
+    <div className="space-y-4">
+      {errorMsg && (
+        <div className="flex items-start gap-2.5 rounded-xl bg-red-50 border border-red-200 px-4 py-3">
+          <AlertTriangle className="size-4 text-red-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-red-700">{errorMsg}</p>
         </div>
-        {errors.email && (
-          <p className="text-destructive text-xs">{errors.email.message}</p>
-        )}
-      </div>
+      )}
 
-      <div className="space-y-1.5">
-        <Label htmlFor="password">Senha</Label>
-        <div className="relative">
-          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            className="pl-9"
-            autoComplete="current-password"
-            {...register("password")}
-          />
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="email">E-mail</Label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu@email.com"
+              className="pl-9"
+              autoComplete="email"
+              {...register("email")}
+            />
+          </div>
+          {errors.email && (
+            <p className="text-destructive text-xs">{errors.email.message}</p>
+          )}
         </div>
-        {errors.password && (
-          <p className="text-destructive text-xs">{errors.password.message}</p>
-        )}
-      </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? (
-          <Loader2 className="size-4 animate-spin" />
-        ) : (
-          "Entrar"
-        )}
-      </Button>
-
-      <div className="relative">
-        <div className="absolute inset-0 flex items-center">
-          <span className="w-full border-t" />
+        <div className="space-y-1.5">
+          <Label htmlFor="password">Senha</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground size-4" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              className="pl-9"
+              autoComplete="current-password"
+              {...register("password")}
+            />
+          </div>
+          {errors.password && (
+            <p className="text-destructive text-xs">{errors.password.message}</p>
+          )}
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-muted-foreground">ou</span>
-        </div>
-      </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full"
-        disabled={loading}
-        onClick={() => {
-          const emailEl = document.getElementById("email") as HTMLInputElement;
-          handleMagicLink(emailEl?.value ?? "");
-        }}
-      >
-        Receber link por e-mail
-      </Button>
-    </form>
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? <Loader2 className="size-4 animate-spin" /> : "Entrar"}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full"
+          disabled={loading}
+          onClick={handleMagicLink}
+        >
+          Receber link por e-mail
+        </Button>
+      </form>
+    </div>
   );
 }

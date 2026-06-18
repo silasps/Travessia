@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, CheckCircle2, X } from "lucide-react";
+import { toast } from "sonner";
+import { registrarMarco } from "@/lib/actions/prontuario";
 
 interface Props {
   residenteId: string;
@@ -14,24 +17,25 @@ export function RegistrarMarcoForm({ residenteId, faseAtual }: Props) {
   const [descricao, setDescricao] = useState("");
   const [fase, setFase] = useState(String(faseAtual));
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  function handleSalvar() {
+  async function handleSalvar() {
     if (!descricao.trim()) return;
-    void residenteId;
-    // Em produção: chamar server action
+    setLoading(true);
+    const res = await registrarMarco({ residenteId, fase: Number(fase), descricao, dataMacro: data });
+    setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setSalvo(true);
-    setTimeout(() => {
-      setSalvo(false);
-      setAberto(false);
-      setDescricao("");
-    }, 2000);
+    router.refresh();
+    setTimeout(() => { setSalvo(false); setAberto(false); setDescricao(""); }, 1500);
   }
 
   if (salvo) {
     return (
       <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <CheckCircle2 className="size-4 shrink-0" />
-        Marco registrado! (conecte o banco para persistir)
+        Marco registrado com sucesso!
       </div>
     );
   }

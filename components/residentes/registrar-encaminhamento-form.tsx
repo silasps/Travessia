@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ExternalLink, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { registrarEncaminhamento as registrarEncaminhamentoAction } from "@/lib/actions/prontuario";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -34,21 +36,24 @@ export function RegistrarEncaminhamentoForm({ residenteId }: { residenteId: stri
   const [descricao, setDescricao] = useState("");
   const [retornoPrevisto, setRetornoPrevisto] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!servico) { toast.error("Selecione o serviço de encaminhamento."); return; }
 
     setLoading(true);
-    // TODO: substituir por server action quando o banco estiver conectado
-    await new Promise((r) => setTimeout(r, 600));
+    const res = await registrarEncaminhamentoAction({
+      residenteId, servico, descricao, retornoPrevisto: retornoPrevisto || undefined,
+    });
     setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setOpen(false);
     setServico("");
     setDescricao("");
     setRetornoPrevisto("");
     toast.success("Encaminhamento registrado.");
-    console.log("registrar encaminhamento", { residenteId, servico, descricao, retornoPrevisto });
+    router.refresh();
   }
 
   return (

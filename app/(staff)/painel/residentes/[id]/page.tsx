@@ -10,7 +10,8 @@ import {
   getMockResidente, getMockDocumentos, getMockMarcos,
   getMockContatosFamiliares, getMockHistoricoContatos,
   getMockOcorrencias, getMockPia, MOCK_FASES,
-  getMockAdvertencias, getMockAnotacoes, getMockEncaminhamentos, MOCK_STAFF,
+  getMockAdvertencias, getMockAnotacoes, getMockEncaminhamentos,
+  MOCK_STAFF,
 } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/server";
 import type { Residente } from "@/types/database";
@@ -24,6 +25,7 @@ import { RegistrarAdvertenciaForm } from "@/components/residentes/registrar-adve
 import { RegistrarAnotacaoForm } from "@/components/residentes/registrar-anotacao-form";
 import { RegistrarEncaminhamentoForm } from "@/components/residentes/registrar-encaminhamento-form";
 import { SERVICO_LABELS } from "@/components/residentes/registrar-encaminhamento-form";
+import { NovaOcorrenciaModal } from "@/components/ocorrencias/nova-ocorrencia-modal";
 import { formatDate, formatDateTime, formatTempoNoPrograma, maskCPF } from "@/lib/utils/format";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
@@ -107,15 +109,74 @@ export default async function ResidenteDetailPage({
   const residente = await getResidente(id);
   if (!residente) notFound();
 
-  const documentos = getMockDocumentos(id);
-  const marcos = getMockMarcos(id);
-  const contatos = getMockContatosFamiliares(id);
-  const historicoContatos = getMockHistoricoContatos(id);
-  const ocorrencias = getMockOcorrencias(id);
-  const pia = getMockPia(id);
-  const advertencias = getMockAdvertencias(id);
-  const anotacoes = getMockAnotacoes(id);
-  const encaminhamentos = getMockEncaminhamentos(id);
+  let documentos: ReturnType<typeof getMockDocumentos>;
+  let marcos: ReturnType<typeof getMockMarcos>;
+  let contatos: ReturnType<typeof getMockContatosFamiliares>;
+  let historicoContatos: ReturnType<typeof getMockHistoricoContatos>;
+  let ocorrencias: ReturnType<typeof getMockOcorrencias>;
+  let pia: ReturnType<typeof getMockPia>;
+  let advertencias: ReturnType<typeof getMockAdvertencias>;
+  let anotacoes: ReturnType<typeof getMockAnotacoes>;
+  let encaminhamentos: ReturnType<typeof getMockEncaminhamentos>;
+
+  type FaseInfo = { numero: number; nome: string; descricao: string | null; objetivos: string[] };
+  type StaffInfo = { full_name: string; cargo: string | null };
+
+  let fases: FaseInfo[];
+  let staffLookup: (uid: string) => StaffInfo | undefined;
+
+  if (DEV_MODE) {
+    documentos = getMockDocumentos(id);
+    marcos = getMockMarcos(id);
+    contatos = getMockContatosFamiliares(id);
+    historicoContatos = getMockHistoricoContatos(id);
+    ocorrencias = getMockOcorrencias(id);
+    pia = getMockPia(id);
+    advertencias = getMockAdvertencias(id);
+    anotacoes = getMockAnotacoes(id);
+    encaminhamentos = getMockEncaminhamentos(id);
+    fases = MOCK_FASES;
+    staffLookup = (uid) => MOCK_STAFF.find((s) => s.id === uid) ?? undefined;
+  } else {
+    const supabase = await createClient();
+    const [
+      { data: docsData },
+      { data: marcosData },
+      { data: contatosData },
+      { data: historicoData },
+      { data: ocorrenciasData },
+      { data: piaData },
+      { data: advertenciasData },
+      { data: anotacoesData },
+      { data: encaminhamentosData },
+      { data: fasesData },
+      { data: staffData },
+    ] = await Promise.all([
+      supabase.from("documentos_residente").select("*").eq("residente_id", id).order("tipo"),
+      supabase.from("marcos_evolucao").select("*").eq("residente_id", id).order("data_marco", { ascending: true }),
+      supabase.from("contatos_familiares").select("*").eq("residente_id", id).order("nome"),
+      supabase.from("historico_contatos_familia").select("*").eq("residente_id", id).order("data_contato", { ascending: false }),
+      supabase.from("ocorrencias").select("*").eq("residente_id", id).order("data_ocorrencia", { ascending: false }),
+      supabase.from("pia").select("*").eq("residente_id", id).maybeSingle(),
+      supabase.from("advertencias").select("*").eq("residente_id", id).order("created_at", { ascending: false }),
+      supabase.from("anotacoes_tecnicas").select("*").eq("residente_id", id).order("created_at", { ascending: false }),
+      supabase.from("encaminhamentos").select("*").eq("residente_id", id).order("data_encaminhamento", { ascending: false }),
+      supabase.from("fases_evolucao").select("numero, nome, descricao, objetivos").order("numero"),
+      supabase.from("staff_profiles").select("user_id, full_name, cargo"),
+    ]);
+    documentos = docsData ?? [];
+    marcos = marcosData ?? [];
+    contatos = contatosData ?? [];
+    historicoContatos = historicoData ?? [];
+    ocorrencias = ocorrenciasData ?? [];
+    pia = piaData ?? undefined;
+    advertencias = advertenciasData ?? [];
+    anotacoes = anotacoesData ?? [];
+    encaminhamentos = encaminhamentosData ?? [];
+    fases = (fasesData ?? []) as FaseInfo[];
+    const staffMap = new Map((staffData ?? []).map((s) => [s.user_id, { full_name: s.full_name, cargo: s.cargo }]));
+    staffLookup = (uid) => staffMap.get(uid);
+  }
 
   const nomeExibido = residente.nome_social ?? residente.nome_completo;
 
@@ -260,7 +321,7 @@ export default async function ResidenteDetailPage({
                 ))}
               </div>
               <div className="flex justify-between mt-1.5">
-                {MOCK_FASES.map((f) => (
+                {fases.map((f) => (
                   <span key={f.numero} className={`text-[10px] ${f.numero <= residente.fase_atual ? "text-blue-700 font-medium" : "text-gray-400"}`}>
                     F{f.numero}
                   </span>
@@ -269,8 +330,8 @@ export default async function ResidenteDetailPage({
             </div>
 
             {/* Fase atual — objetivos */}
-            {MOCK_FASES.find((f) => f.numero === residente.fase_atual) && (() => {
-              const fase = MOCK_FASES.find((f) => f.numero === residente.fase_atual)!;
+            {fases.find((f) => f.numero === residente.fase_atual) && (() => {
+              const fase = fases.find((f) => f.numero === residente.fase_atual)!;
               return (
                 <div className="bg-white rounded-2xl border border-gray-100 p-4">
                   <h3 className="text-sm font-semibold text-gray-900 mb-2">
@@ -310,7 +371,7 @@ export default async function ResidenteDetailPage({
                   <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
                   <div className="space-y-4">
                     {[...marcos].reverse().map((marco) => {
-                      const faseInfo = MOCK_FASES.find((f) => f.numero === marco.fase);
+                      const faseInfo = fases.find((f) => f.numero === marco.fase);
                       return (
                         <div key={marco.id} className="flex gap-4">
                           <div className="relative z-10 flex-shrink-0 w-8 h-8 rounded-full border-2 border-blue-600 bg-white flex items-center justify-center">
@@ -503,13 +564,7 @@ export default async function ResidenteDetailPage({
               <h3 className="text-sm font-semibold text-gray-900">
                 Ocorrências ({ocorrencias.length})
               </h3>
-              <Link
-                href={`/painel/ocorrencias/nova?residente=${id}`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-destructive px-3 py-2 text-xs font-medium text-white hover:bg-destructive/90 transition-colors"
-              >
-                <AlertTriangle className="size-3.5" />
-                Nova ocorrência
-              </Link>
+              <NovaOcorrenciaModal residenteId={id} residenteNome={nomeExibido} />
             </div>
 
             {ocorrencias.length === 0 ? (
@@ -565,7 +620,7 @@ export default async function ResidenteDetailPage({
               <div className="space-y-2">
                 {advertencias.map((adv) => {
                   const cfg = ADVERTENCIA_TIPO_CONFIG[adv.tipo];
-                  const aplicadoPor = MOCK_STAFF.find((s) => s.id === adv.aplicado_por);
+                  const aplicadoPor = staffLookup(adv.aplicado_por);
                   return (
                     <div key={adv.id} className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -623,7 +678,7 @@ export default async function ResidenteDetailPage({
             ) : (
               <div className="space-y-3">
                 {[...anotacoes].reverse().map((anot) => {
-                  const autor = MOCK_STAFF.find((s) => s.id === anot.autor_id);
+                  const autor = staffLookup(anot.autor_id);
                   return (
                     <div key={anot.id} className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="flex items-center justify-between gap-2 mb-2">
@@ -661,7 +716,7 @@ export default async function ResidenteDetailPage({
               <div className="space-y-2">
                 {encaminhamentos.map((enc) => {
                   const statusCfg = ENCAMINHAMENTO_STATUS_CONFIG[enc.status];
-                  const responsavel = MOCK_STAFF.find((s) => s.id === enc.responsavel_id);
+                  const responsavel = staffLookup(enc.responsavel_id);
                   return (
                     <div key={enc.id} className="bg-white rounded-xl border border-gray-100 p-4">
                       <div className="flex flex-wrap items-center gap-2 mb-2">

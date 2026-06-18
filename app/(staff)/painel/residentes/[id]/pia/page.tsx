@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, FileText, Heart, Target, Users, Activity, BookOpen, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { getMockResidente, getMockPia } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import { salvarPIA } from "@/lib/actions/prontuario";
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
 type Secao = "identificacao" | "historico" | "saude" | "objetivos" | "plano" | "rede";
 
@@ -17,17 +22,42 @@ const SECOES: { id: Secao; label: string; icon: React.ReactNode }[] = [
   { id: "rede",          label: "Rede de apoio",              icon: <Users className="size-4" /> },
 ];
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PiaData = any;
+
 export default function PiaPage() {
   const { id } = useParams<{ id: string }>();
-  const residente = getMockResidente(id);
-  const pia = getMockPia(id);
-
+  const [nomeExibido, setNomeExibido] = useState<string | null>(null);
+  const [pia, setPia] = useState<PiaData>(undefined);
+  const [loaded, setLoaded] = useState(false);
   const [secaoAtiva, setSecaoAtiva] = useState<Secao>("identificacao");
   const [salvo, setSalvo] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
 
-  if (!residente) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
+  useEffect(() => {
+    if (DEV_MODE) {
+      const r = getMockResidente(id);
+      setNomeExibido(r ? (r.nome_social ?? r.nome_completo) : null);
+      setPia(getMockPia(id));
+      setLoaded(true);
+      return;
+    }
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("residentes").select("nome_completo, nome_social").eq("id", id).maybeSingle(),
+      supabase.from("pia").select("*").eq("residente_id", id).maybeSingle(),
+    ]).then(([{ data: r }, { data: p }]) => {
+      setNomeExibido(r ? (r.nome_social ?? r.nome_completo) : null);
+      setPia(p ?? undefined);
+      setLoaded(true);
+    });
+  }, [id]);
 
-  const nomeExibido = residente.nome_social ?? residente.nome_completo;
+  if (!loaded) return <p className="text-muted-foreground p-4">Carregando PIA...</p>;
+  if (!nomeExibido) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
+
   const secaoIdx = SECOES.findIndex((s) => s.id === secaoAtiva);
   const isUltima = secaoIdx === SECOES.length - 1;
   const isPrimeira = secaoIdx === 0;
@@ -100,21 +130,21 @@ export default function PiaPage() {
       </div>
 
       {/* ─── SEÇÕES ─── */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
+      <form ref={formRef} className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4" onSubmit={(e) => e.preventDefault()}>
 
         {/* Identificação complementar */}
         {secaoAtiva === "identificacao" && (
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Naturalidade</label>
-              <input type="text" defaultValue={pia?.secao_identificacao?.naturalidade as string ?? ""}
+              <input type="text" name="id_naturalidade" defaultValue={pia?.secao_identificacao?.naturalidade as string ?? ""}
                 placeholder="Cidade/UF"
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Situação civil</label>
-                <select defaultValue={pia?.secao_identificacao?.situacao_civil as string ?? ""}
+                <select name="id_situacao_civil" defaultValue={pia?.secao_identificacao?.situacao_civil as string ?? ""}
                   className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Selecionar…</option>
                   <option value="solteiro">Solteiro(a)</option>
@@ -126,7 +156,7 @@ export default function PiaPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Escolaridade</label>
-                <select defaultValue={pia?.secao_identificacao?.escolaridade as string ?? ""}
+                <select name="id_escolaridade" defaultValue={pia?.secao_identificacao?.escolaridade as string ?? ""}
                   className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
                   <option value="">Selecionar…</option>
                   <option value="Sem escolaridade">Sem escolaridade</option>
@@ -141,7 +171,7 @@ export default function PiaPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Profissão / ocupação anterior</label>
-              <input type="text" defaultValue={pia?.secao_identificacao?.profissao_anterior as string ?? ""}
+              <input type="text" name="id_profissao" defaultValue={pia?.secao_identificacao?.profissao_anterior as string ?? ""}
                 placeholder="Última ocupação antes da situação de rua"
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
@@ -153,19 +183,19 @@ export default function PiaPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Histórico da situação de rua</label>
-              <textarea rows={4} defaultValue={pia?.secao_historico_vida?.historico_rua as string ?? ""}
+              <textarea name="hist_rua" rows={4} defaultValue={pia?.secao_historico_vida?.historico_rua as string ?? ""}
                 placeholder="Como chegou à situação de rua, trajetória, eventos relevantes…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Situações de vulnerabilidade identificadas</label>
-              <textarea rows={3} defaultValue={(pia?.secao_historico_vida?.situacoes_vulnerabilidade as string[])?.join(", ") ?? ""}
+              <textarea name="hist_vulnerabilidade" rows={3} defaultValue={(pia?.secao_historico_vida?.situacoes_vulnerabilidade as string[])?.join(", ") ?? ""}
                 placeholder="Ex: dependência química, desemprego prolongado, violência doméstica…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Histórico de violência</label>
-              <textarea rows={2} defaultValue={pia?.secao_historico_vida?.historico_violencia as string ?? ""}
+              <textarea name="hist_violencia" rows={2} defaultValue={pia?.secao_historico_vida?.historico_violencia as string ?? ""}
                 placeholder="Vitimização, violência sofrida ou praticada (se relevante e com consentimento)…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
@@ -177,25 +207,25 @@ export default function PiaPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Condições de saúde crônicas</label>
-              <input type="text" defaultValue={pia?.secao_saude?.condicoes_cronicas as string ?? ""}
+              <input type="text" name="saude_cronicas" defaultValue={pia?.secao_saude?.condicoes_cronicas as string ?? ""}
                 placeholder="Hipertensão, diabetes, epilepsia, etc."
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Medicamentos em uso</label>
-              <input type="text" defaultValue={pia?.secao_saude?.medicamentos as string ?? ""}
+              <input type="text" name="saude_medicamentos" defaultValue={pia?.secao_saude?.medicamentos as string ?? ""}
                 placeholder="Nome, dose e frequência"
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Tratamento de saúde mental</label>
-              <input type="text" defaultValue={pia?.secao_saude?.tratamento_saude_mental as string ?? ""}
+              <input type="text" name="saude_mental" defaultValue={pia?.secao_saude?.tratamento_saude_mental as string ?? ""}
                 placeholder="CAPS, psiquiatra, psicólogo, etc."
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Uso de substâncias psicoativas</label>
-              <input type="text" defaultValue={pia?.secao_saude?.uso_substancias as string ?? ""}
+              <input type="text" name="saude_substancias" defaultValue={pia?.secao_saude?.uso_substancias as string ?? ""}
                 placeholder="Álcool, crack, múltiplas, em remissão, etc."
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
@@ -207,25 +237,25 @@ export default function PiaPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Objetivo principal do acolhimento</label>
-              <input type="text" defaultValue={pia?.secao_objetivos?.objetivo_principal as string ?? ""}
+              <input type="text" name="obj_principal" defaultValue={pia?.secao_objetivos?.objetivo_principal as string ?? ""}
                 placeholder="O que o acolhido quer alcançar ao final do programa"
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de curto prazo (até 3 meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_curto_prazo as string[])?.join("\n") ?? ""}
+              <textarea name="obj_curto" rows={3} defaultValue={(pia?.secao_objetivos?.metas_curto_prazo as string[])?.join("\n") ?? ""}
                 placeholder="Uma meta por linha"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de médio prazo (3-6 meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_medio_prazo as string[])?.join("\n") ?? ""}
+              <textarea name="obj_medio" rows={3} defaultValue={(pia?.secao_objetivos?.metas_medio_prazo as string[])?.join("\n") ?? ""}
                 placeholder="Uma meta por linha"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Metas de longo prazo (6+ meses)</label>
-              <textarea rows={3} defaultValue={(pia?.secao_objetivos?.metas_longo_prazo as string[])?.join("\n") ?? ""}
+              <textarea name="obj_longo" rows={3} defaultValue={(pia?.secao_objetivos?.metas_longo_prazo as string[])?.join("\n") ?? ""}
                 placeholder="Uma meta por linha"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
@@ -237,7 +267,7 @@ export default function PiaPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Ações previstas no plano de atendimento</label>
-              <textarea rows={6} defaultValue={(pia?.secao_plano_acao?.acoes as string[])?.join("\n") ?? ""}
+              <textarea name="plano_acoes" rows={6} defaultValue={(pia?.secao_plano_acao?.acoes as string[])?.join("\n") ?? ""}
                 placeholder="Uma ação por linha. Ex: Acompanhamento semanal no CAPS; Busca de emprego via SINE…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
@@ -249,31 +279,31 @@ export default function PiaPage() {
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede familiar</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_familiar as string ?? ""}
+              <textarea name="rede_familiar" rows={2} defaultValue={pia?.secao_rede_apoio?.rede_familiar as string ?? ""}
                 placeholder="Vínculos familiares ativos e situação do relacionamento"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede institucional</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_institucional as string ?? ""}
+              <textarea name="rede_institucional" rows={2} defaultValue={pia?.secao_rede_apoio?.rede_institucional as string ?? ""}
                 placeholder="CAPS, CRAS, CREAS, serviços de saúde, assistência social…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Rede comunitária</label>
-              <textarea rows={2} defaultValue={pia?.secao_rede_apoio?.rede_comunitaria as string ?? ""}
+              <textarea name="rede_comunitaria" rows={2} defaultValue={pia?.secao_rede_apoio?.rede_comunitaria as string ?? ""}
                 placeholder="Igrejas, grupos de apoio, vizinhança, etc."
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Observações gerais</label>
-              <textarea rows={3} defaultValue={pia?.observacoes_gerais ?? ""}
+              <textarea name="obs_gerais" rows={3} defaultValue={pia?.observacoes_gerais ?? ""}
                 placeholder="Impressões da equipe, pontos de atenção, evolução observada…"
                 className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
             </div>
           </>
         )}
-      </div>
+      </form>
 
       {/* Navegação entre seções */}
       <div className="flex gap-3">
@@ -298,11 +328,36 @@ export default function PiaPage() {
         ) : (
           <button
             type="button"
-            onClick={() => setSalvo(true)}
-            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px]"
+            disabled={salvando}
+            onClick={async () => {
+              if (!formRef.current) return;
+              const fd = new FormData(formRef.current);
+              const g = (k: string) => (fd.get(k) as string) ?? "";
+              const lines = (k: string) => g(k).split("\n").map((l) => l.trim()).filter(Boolean);
+
+              if (DEV_MODE) { setSalvo(true); return; }
+
+              setSalvando(true);
+              const res = await salvarPIA({
+                residenteId: id,
+                secaoIdentificacao: { naturalidade: g("id_naturalidade"), situacao_civil: g("id_situacao_civil"), escolaridade: g("id_escolaridade"), profissao_anterior: g("id_profissao") },
+                secaoHistorico: { historico_rua: g("hist_rua"), situacoes_vulnerabilidade: g("hist_vulnerabilidade"), historico_violencia: g("hist_violencia") },
+                secaoSaude: { condicoes_cronicas: g("saude_cronicas"), medicamentos: g("saude_medicamentos"), tratamento_saude_mental: g("saude_mental"), uso_substancias: g("saude_substancias") },
+                secaoObjetivos: { objetivo_principal: g("obj_principal"), metas_curto_prazo: lines("obj_curto"), metas_medio_prazo: lines("obj_medio"), metas_longo_prazo: lines("obj_longo") },
+                secaoPlano: { acoes: lines("plano_acoes") },
+                secaoRede: { rede_familiar: g("rede_familiar"), rede_institucional: g("rede_institucional"), rede_comunitaria: g("rede_comunitaria") },
+                observacoesGerais: g("obs_gerais"),
+              });
+              setSalvando(false);
+              if ("error" in res) { toast.error(res.error); return; }
+              toast.success("PIA salvo com sucesso!");
+              setSalvo(true);
+              router.refresh();
+            }}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px] disabled:opacity-50"
           >
             <Save className="size-4" />
-            Salvar PIA
+            {salvando ? "Salvando…" : "Salvar PIA"}
           </button>
         )}
       </div>

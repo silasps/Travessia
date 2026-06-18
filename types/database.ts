@@ -230,6 +230,7 @@ export interface ResidentePortal {
   id: string;
   residente_id: string;
   user_id: string | null;
+  email_portal: string | null;
   is_active: boolean;
   activated_at: string | null;
   created_at: string;
@@ -429,6 +430,24 @@ export type Database = {
         Update: Partial<Omit<ConfiguracaoSistema, "id">>;
         Relationships: never[];
       };
+      advertencias: {
+        Row: AsRow<Advertencia>;
+        Insert: Omit<Advertencia, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Advertencia, "id" | "created_at">>;
+        Relationships: never[];
+      };
+      anotacoes_tecnicas: {
+        Row: AsRow<AnotacaoTecnica>;
+        Insert: Omit<AnotacaoTecnica, "id" | "created_at">;
+        Update: never;
+        Relationships: never[];
+      };
+      encaminhamentos: {
+        Row: AsRow<Encaminhamento>;
+        Insert: Omit<Encaminhamento, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Encaminhamento, "id" | "created_at">>;
+        Relationships: never[];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -438,6 +457,9 @@ export type Database = {
       ocorrencia_gravidade: OcorrenciaGravidade;
       ocorrencia_status: OcorrenciaStatus;
       pia_status: PiaStatus;
+      advertencia_tipo: AdvertenciaTipo;
+      encaminhamento_servico: EncaminhamentoServico;
+      encaminhamento_status: EncaminhamentoStatus;
     };
     CompositeTypes: Record<string, never>;
   };

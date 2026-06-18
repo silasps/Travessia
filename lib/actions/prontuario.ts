@@ -1,0 +1,329 @@
+"use server";
+
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+
+async function getStaffUser() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: roleRow } = await supabase
+    .from("staff_roles")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+  if (!roleRow) return null;
+  return { id: user.id, role: roleRow.role as string };
+}
+
+function revalidar(residenteId: string) {
+  revalidatePath(`/painel/residentes/${residenteId}`);
+}
+
+async function auditLog(
+  admin: Awaited<ReturnType<typeof createAdminClient>>,
+  staff: { id: string; role: string },
+  action: string,
+  entity: string,
+  entityId?: string,
+  entityName?: string,
+  details?: Record<string, unknown>,
+) {
+  await admin.from("audit_logs").insert({
+    user_id: staff.id,
+    user_role: staff.role,
+    action,
+    entity,
+    entity_id: entityId ?? null,
+    entity_name: entityName ?? null,
+    details: details ?? null,
+    ip_address: null,
+    user_agent: null,
+  });
+}
+
+// ── Advertência ──────────────────────────────────────────────────────────────
+
+export async function registrarAdvertencia(input: {
+  residenteId: string;
+  tipo: "verbal" | "escrita" | "suspensao";
+  motivo: string;
+  descricao?: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const admin = await createAdminClient();
+  const { error } = await admin.from("advertencias").insert({
+    residente_id: input.residenteId,
+    tipo: input.tipo,
+    motivo: input.motivo,
+    descricao: input.descricao?.trim() || null,
+    data_aplicacao: new Date().toISOString().split("T")[0],
+    aplicado_por: staff.id,
+    reconhecido_em: null,
+  });
+
+  if (error) return { error: error.message };
+  await auditLog(admin, staff, "create_advertencia", "advertencias", input.residenteId, input.motivo);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Anotação Técnica ─────────────────────────────────────────────────────────
+
+export async function registrarAnotacao(input: {
+  residenteId: string;
+  conteudo: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { error } = await admin.from("anotacoes_tecnicas").insert({
+    residente_id: input.residenteId,
+    conteudo: input.conteudo.trim(),
+    autor_id: staff.id,
+  });
+
+  if (error) return { error: error.message };
+  await auditLog(admin, staff, "create_anotacao", "anotacoes_tecnicas", input.residenteId);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Marco de Evolução ────────────────────────────────────────────────────────
+
+export async function registrarMarco(input: {
+  residenteId: string;
+  fase: number;
+  descricao: string;
+  dataMacro: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { error } = await admin.from("marcos_evolucao").insert({
+    residente_id: input.residenteId,
+    fase: input.fase,
+    descricao: input.descricao.trim(),
+    data_marco: input.dataMacro,
+    registrado_por: staff.id,
+  });
+
+  if (error) return { error: error.message };
+  await auditLog(admin, staff, "create_marco", "marcos_evolucao", input.residenteId, input.descricao.trim());
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Contato Familiar (histórico) ─────────────────────────────────────────────
+
+export async function registrarHistoricoContato(input: {
+  residenteId: string;
+  tipoContato: string;
+  descricao: string;
+  dataContato: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { error } = await admin.from("historico_contatos_familia").insert({
+    residente_id: input.residenteId,
+    contato_id: null,
+    data_contato: input.dataContato,
+    tipo_contato: input.tipoContato,
+    descricao: input.descricao.trim(),
+    registrado_por: staff.id,
+  });
+
+  if (error) return { error: error.message };
+  await auditLog(admin, staff, "create_contato_familiar", "historico_contatos_familia", input.residenteId);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Encaminhamento ───────────────────────────────────────────────────────────
+
+export async function registrarEncaminhamento(input: {
+  residenteId: string;
+  servico: string;
+  descricao: string;
+  retornoPrevisto?: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { error } = await admin.from("encaminhamentos").insert({
+    residente_id: input.residenteId,
+    servico: input.servico as "cras" | "creas" | "caps" | "saude" | "emprego_sine" | "curso_profissionalizante" | "beneficio_social" | "juridico" | "moradia" | "outros",
+    descricao: input.descricao.trim(),
+    data_encaminhamento: new Date().toISOString().split("T")[0],
+    responsavel_id: staff.id,
+    retorno_previsto: input.retornoPrevisto || null,
+    status: "pendente" as const,
+    observacoes_retorno: null,
+  });
+
+  if (error) return { error: error.message };
+  await auditLog(admin, staff, "create_encaminhamento", "encaminhamentos", input.residenteId, input.servico);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Salvar PIA ───────────────────────────────────────────────────────────────
+
+export async function salvarPIA(input: {
+  residenteId: string;
+  secaoIdentificacao: Record<string, unknown>;
+  secaoHistorico: Record<string, unknown>;
+  secaoSaude: Record<string, unknown>;
+  secaoObjetivos: Record<string, unknown>;
+  secaoPlano: Record<string, unknown>;
+  secaoRede: Record<string, unknown>;
+  observacoesGerais: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+
+  const { data: existing } = await admin
+    .from("pia")
+    .select("id")
+    .eq("residente_id", input.residenteId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await admin
+      .from("pia")
+      .update({
+        secao_identificacao: input.secaoIdentificacao,
+        secao_historico_vida: input.secaoHistorico,
+        secao_saude: input.secaoSaude,
+        secao_objetivos: input.secaoObjetivos,
+        secao_plano_acao: input.secaoPlano,
+        secao_rede_apoio: input.secaoRede,
+        observacoes_gerais: input.observacoesGerais || null,
+        status: "em_elaboracao" as const,
+        data_revisao: new Date().toISOString().split("T")[0],
+      })
+      .eq("id", existing.id);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await admin.from("pia").insert({
+      residente_id: input.residenteId,
+      tecnico_id: staff.id,
+      status: "em_elaboracao" as const,
+      data_inicio: new Date().toISOString().split("T")[0],
+      data_revisao: null,
+      secao_identificacao: input.secaoIdentificacao,
+      secao_historico_vida: input.secaoHistorico,
+      secao_saude: input.secaoSaude,
+      secao_objetivos: input.secaoObjetivos,
+      secao_plano_acao: input.secaoPlano,
+      secao_rede_apoio: input.secaoRede,
+      observacoes_gerais: input.observacoesGerais || null,
+    });
+    if (error) return { error: error.message };
+  }
+
+  await auditLog(admin, staff, "save_pia", "pia", input.residenteId);
+  revalidatePath(`/painel/residentes/${input.residenteId}`);
+  return { success: true };
+}
+
+// ── Criar Ocorrência ─────────────────────────────────────────────────────────
+
+export async function criarOcorrencia(input: {
+  residenteId: string;
+  dataOcorrencia: string;
+  gravidade: "leve" | "moderada" | "grave" | "gravissima";
+  descricao: string;
+  local?: string;
+  testemunhas?: string;
+}): Promise<{ success: true; id: string } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const admin = await createAdminClient();
+  const { data, error } = await admin
+    .from("ocorrencias")
+    .insert({
+      residente_id: input.residenteId,
+      aberto_por: staff.id,
+      data_ocorrencia: input.dataOcorrencia,
+      gravidade: input.gravidade,
+      descricao: input.descricao.trim(),
+      local: input.local?.trim() || null,
+      testemunhas: input.testemunhas?.trim() || null,
+      status: "aberta" as const,
+      avaliado_por: null,
+      data_avaliacao: null,
+      parecer: null,
+      providencias: null,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) return { error: error?.message ?? "Erro ao criar ocorrência." };
+  await auditLog(admin, staff, "create_ocorrencia", "ocorrencias", data.id, `Gravidade: ${input.gravidade}`);
+  revalidatePath("/painel/ocorrencias");
+  return { success: true, id: data.id };
+}
+
+// ── Mudar Fase ───────────────────────────────────────────────────────────────
+
+export async function mudarFase(input: {
+  residenteId: string;
+  novaFase: number;
+  justificativa: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  if (input.novaFase < 1 || input.novaFase > 4) return { error: "Fase inválida." };
+
+  const admin = await createAdminClient();
+
+  const { error: errUpdate } = await admin
+    .from("residentes")
+    .update({ fase_atual: input.novaFase })
+    .eq("id", input.residenteId);
+
+  if (errUpdate) return { error: errUpdate.message };
+
+  const FASE_NOMES = ["", "Acolhimento", "Reorganização", "Autonomia", "Preparação"];
+  await admin.from("marcos_evolucao").insert({
+    residente_id: input.residenteId,
+    fase: input.novaFase,
+    descricao: `Mudança para Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}. ${input.justificativa.trim()}`,
+    data_marco: new Date().toISOString().split("T")[0],
+    registrado_por: staff.id,
+  });
+
+  await auditLog(admin, staff, "update_fase", "residentes", input.residenteId, `Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}`);
+  revalidar(input.residenteId);
+  return { success: true };
+}

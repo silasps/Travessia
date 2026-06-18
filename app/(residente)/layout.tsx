@@ -13,7 +13,7 @@ function PreviewBanner({ nomeResidente }: { nomeResidente: string | null }) {
         Modo de visualização — <strong>Acolhido{nomeResidente ? `: ${nomeResidente}` : ""}</strong>
       </span>
       <a
-        href="/painel"
+        href="/painel/residentes"
         className="flex items-center gap-1 text-xs font-semibold hover:underline opacity-80 hover:opacity-100"
       >
         <X className="size-3.5" />
