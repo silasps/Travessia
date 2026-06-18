@@ -232,16 +232,23 @@ export async function salvarPIA(input: {
     const { error } = await admin.from("pia").update(updates as any).eq("id", existing.id);
     if (error) return { error: error.message };
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await admin.from("pia").insert({
       residente_id: input.residenteId,
       tecnico_id: staff.id,
-      status: "em_elaboracao" as const,
+      status: "em_elaboracao",
       data_inicio: new Date().toISOString().split("T")[0],
+      data_revisao: null,
       secao_identificacao: input.fichaIdentificacao ?? {},
+      secao_historico_vida: {},
+      secao_saude: {},
+      secao_objetivos: {},
       secao_plano_acao: input.registrosAcompanhamento
         ? { registros: input.registrosAcompanhamento }
         : {},
-    });
+      secao_rede_apoio: {},
+      observacoes_gerais: null,
+    } as any);
     if (error) return { error: error.message };
   }
 
