@@ -3,6 +3,7 @@ import Link from "next/link";
 import { AlertTriangle, Plus } from "lucide-react";
 import { MOCK_OCORRENCIAS, MOCK_RESIDENTES } from "@/lib/mock-data";
 import { createClient } from "@/lib/supabase/server";
+import { AutoSubmitSelect } from "@/components/residentes/auto-submit-select";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Ocorrências" };
@@ -96,23 +97,28 @@ export default async function OcorrenciasPage({
 
       {/* Filtros */}
       <form method="GET" className="flex flex-wrap gap-2">
-        <select name="status" defaultValue={filtroStatus} className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        <AutoSubmitSelect
+          name="status"
+          defaultValue={filtroStatus}
+          className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring min-w-[150px]"
+        >
           <option value="">Todos status</option>
           <option value="aberta">Abertas</option>
           <option value="em_avaliacao">Em avaliação</option>
           <option value="confirmada">Confirmadas</option>
           <option value="improcedente">Improcedentes</option>
-        </select>
-        <select name="gravidade" defaultValue={filtroGravidade} className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+        </AutoSubmitSelect>
+        <AutoSubmitSelect
+          name="gravidade"
+          defaultValue={filtroGravidade}
+          className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring min-w-[160px]"
+        >
           <option value="">Todas gravidades</option>
           <option value="leve">Leve</option>
           <option value="moderada">Moderada</option>
           <option value="grave">Grave</option>
           <option value="gravissima">Gravíssima</option>
-        </select>
-        <button type="submit" className="h-10 rounded-xl border border-input bg-muted px-4 text-sm font-medium hover:bg-muted/80 transition-colors">
-          Filtrar
-        </button>
+        </AutoSubmitSelect>
       </form>
 
       <p className="text-sm text-muted-foreground">{ocorrencias.length} ocorrência{ocorrencias.length !== 1 ? "s" : ""}</p>

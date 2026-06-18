@@ -373,9 +373,10 @@ export default async function ResidenteDetailPage({
                 Histórico de marcos ({marcos.length})
               </h3>
               {marcos.length === 0 ? (
-                <p className="text-sm text-muted-foreground bg-white rounded-2xl border p-4">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                  <TrendingUp className="size-10 mx-auto mb-2 opacity-20" />
                   Nenhum marco registrado ainda.
-                </p>
+                </div>
               ) : (
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
@@ -417,7 +418,8 @@ export default async function ResidenteDetailPage({
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-gray-900">Contatos familiares ({contatos.length})</h3>
               {contatos.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 text-sm text-muted-foreground">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                  <Users className="size-10 mx-auto mb-2 opacity-20" />
                   Nenhum contato familiar cadastrado.
                 </div>
               ) : (

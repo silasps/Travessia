@@ -368,6 +368,70 @@ export async function criarOcorrencia(input: {
   return { success: true, id: data.id };
 }
 
+// ── Avaliar Ocorrência ───────────────────────────────────────────────────────
+
+export async function avaliarOcorrencia(input: {
+  ocorrenciaId: string;
+  decisao: "em_avaliacao" | "confirmada" | "improcedente";
+  parecer: string;
+  gerarAdvertencia?: {
+    tipo: "verbal" | "escrita" | "suspensao";
+    motivo: string;
+  };
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao"];
+  if (!PODE.includes(staff.role)) return { error: "Apenas coordenação ou superior pode avaliar." };
+
+  const admin = await createAdminClient();
+
+  const { data: oc } = await admin
+    .from("ocorrencias")
+    .select("id, residente_id, status")
+    .eq("id", input.ocorrenciaId)
+    .single();
+
+  if (!oc) return { error: "Ocorrência não encontrada." };
+  if (oc.status !== "aberta" && oc.status !== "em_avaliacao") {
+    return { error: "Esta ocorrência já foi avaliada." };
+  }
+
+  const { error } = await admin
+    .from("ocorrencias")
+    .update({
+      status: input.decisao,
+      parecer: input.parecer.trim() || null,
+      avaliado_por: staff.id,
+      data_avaliacao: new Date().toISOString().split("T")[0],
+    })
+    .eq("id", oc.id);
+
+  if (error) return { error: error.message };
+
+  // Gerar advertência vinculada se solicitado
+  if (input.gerarAdvertencia && input.decisao === "confirmada") {
+    await admin.from("advertencias").insert({
+      residente_id: oc.residente_id,
+      tipo: input.gerarAdvertencia.tipo,
+      motivo: input.gerarAdvertencia.motivo,
+      descricao: `Gerada a partir da avaliação da ocorrência.`,
+      data_aplicacao: new Date().toISOString().split("T")[0],
+      aplicado_por: staff.id,
+      reconhecido_em: null,
+    });
+
+    await auditLog(admin, staff, "create_advertencia", "advertencias", oc.residente_id, input.gerarAdvertencia.motivo);
+  }
+
+  await auditLog(admin, staff, "evaluate_ocorrencia", "ocorrencias", oc.id, `Decisão: ${input.decisao}`);
+  revalidatePath(`/painel/ocorrencias/${oc.id}`);
+  revalidatePath("/painel/ocorrencias");
+  revalidar(oc.residente_id);
+  return { success: true };
+}
+
 // ── Mudar Fase ───────────────────────────────────────────────────────────────
 
 export async function mudarFase(input: {

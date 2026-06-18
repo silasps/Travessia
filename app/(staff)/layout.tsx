@@ -99,8 +99,8 @@ export default async function StaffLayout({
 
     const previewResidenteId = cookieStore.get(PREVIEW_RESIDENTE_COOKIE)?.value ?? null;
     if (previewResidenteId) {
-      const found = residentesPreview.find((r) => r.id === previewResidenteId);
-      if (found) previewResidente = { id: found.id, nome: found.nome };
+      // Limpa o cookie — ele só é relevante em /meu-espaco, não no painel
+      try { cookieStore.delete(PREVIEW_RESIDENTE_COOKIE); } catch { /* Server Component read-only */ }
     }
   }
 
