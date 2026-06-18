@@ -228,7 +228,8 @@ export async function salvarPIA(input: {
   }
 
   if (existing) {
-    const { error } = await admin.from("pia").update(updates).eq("id", existing.id);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await admin.from("pia").update(updates as any).eq("id", existing.id);
     if (error) return { error: error.message };
   } else {
     const { error } = await admin.from("pia").insert({
