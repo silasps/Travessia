@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { notificarStaffPorRole } from "@/lib/actions/notificar";
 
 async function getStaffUser() {
   const supabase = await createClient();
@@ -66,6 +67,10 @@ export async function registrarAdvertencia(input: {
 
   if (error) return { error: error.message };
   await auditLog(admin, staff, "create_advertencia", "advertencias", input.residenteId, input.motivo);
+  await notificarStaffPorRole(["super_admin", "coordenacao"], "advertencia_registrada", {
+    residente_id: input.residenteId, tipo: input.tipo, motivo: input.motivo,
+    descricao: `${input.tipo} — ${input.motivo}`,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }
@@ -182,6 +187,10 @@ export async function registrarEncaminhamento(input: {
 
   if (error) return { error: error.message };
   await auditLog(admin, staff, "create_encaminhamento", "encaminhamentos", input.residenteId, input.servico);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "novo_encaminhamento", {
+    residente_id: input.residenteId, servico: input.servico,
+    descricao: input.servico,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }
@@ -286,6 +295,10 @@ export async function alterarStatusPIA(input: {
   if (error) return { error: error.message };
 
   await auditLog(admin, staff, "update_pia_status", "pia", input.residenteId, `Status → ${input.novoStatus}`);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "pia_status_alterado", {
+    residente_id: input.residenteId,
+    descricao: `Status alterado para ${input.novoStatus}`,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }
@@ -426,6 +439,17 @@ export async function avaliarOcorrencia(input: {
   }
 
   await auditLog(admin, staff, "evaluate_ocorrencia", "ocorrencias", oc.id, `Decisão: ${input.decisao}`);
+  // Notifica quem abriu a ocorrência que ela foi avaliada
+  const { data: ocFull } = await admin.from("ocorrencias").select("aberto_por").eq("id", oc.id).single();
+  if (ocFull?.aberto_por && ocFull.aberto_por !== staff.id) {
+    const adminForNotif = await createAdminClient();
+    await adminForNotif.from("notifications").insert({
+      recipient_user_id: ocFull.aberto_por,
+      type: "ocorrencia_avaliada",
+      payload: { ocorrencia_id: oc.id, decisao: input.decisao, descricao: `Decisão: ${input.decisao}` },
+      read_at: null,
+    });
+  }
   revalidatePath(`/painel/ocorrencias/${oc.id}`);
   revalidatePath("/painel/ocorrencias");
   revalidar(oc.residente_id);
@@ -466,6 +490,10 @@ export async function mudarFase(input: {
   });
 
   await auditLog(admin, staff, "update_fase", "residentes", input.residenteId, `Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}`);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "fase_alterada", {
+    residente_id: input.residenteId,
+    descricao: `Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}`,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }

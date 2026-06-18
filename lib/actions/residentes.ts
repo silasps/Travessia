@@ -3,6 +3,7 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { criarDocumentosIniciais } from "@/lib/actions/documentos-residente";
+import { notificarStaffPorRole } from "@/lib/actions/notificar";
 
 export interface CriarResidenteInput {
   // Identificação
@@ -161,6 +162,12 @@ export async function criarResidente(
     ip: null,
     revogado_em: null,
   });
+
+  await notificarStaffPorRole(["super_admin", "coordenacao"], "novo_residente", {
+    residente_id: residente.id,
+    nome: dados.nome_completo,
+    descricao: `${dados.nome_completo} — ${residente.numero_prontuario}`,
+  }, user.id);
 
   revalidatePath("/painel/residentes");
   return {
