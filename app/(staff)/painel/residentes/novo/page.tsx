@@ -10,6 +10,31 @@ import { criarResidente } from "@/lib/actions/residentes";
 type Aba = "dados" | "portal" | "lgpd";
 type TipoAcesso = "email" | "senha";
 
+const SUBSTANCIAS_OPTS = [
+  { id: "alcool",        label: "Álcool" },
+  { id: "tabaco",        label: "Tabaco / cigarro" },
+  { id: "cannabis",      label: "Cannabis (maconha)" },
+  { id: "crack",         label: "Crack" },
+  { id: "cocaina",       label: "Cocaína / pó" },
+  { id: "inalantes",     label: "Inalantes (cola, thinner…)" },
+  { id: "opioides",      label: "Opióides" },
+  { id: "calmantes",     label: "Calmantes / Benzodiazepínicos" },
+  { id: "em_tratamento", label: "Em tratamento / remissão" },
+  { id: "outros",        label: "Outros" },
+];
+
+function mascaraCPF(v: string) {
+  return v
+    .replace(/\D/g, "")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2")
+    .slice(0, 14);
+}
+
+const inputCls =
+  "w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+
 export default function NovoResidentePage() {
   const [aba, setAba] = useState<Aba>("dados");
   const [lgpdAceito, setLgpdAceito] = useState(false);
@@ -19,6 +44,38 @@ export default function NovoResidentePage() {
   const [resultado, setResultado] = useState<{ numeroProntuario: string; residenteId: string } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
+
+  // Campos com estado próprio
+  const [cpf, setCpf] = useState("");
+  const [motivoEntrada, setMotivoEntrada] = useState("");
+  const [naoUsaSubstancias, setNaoUsaSubstancias] = useState(false);
+  const [substancias, setSubstancias] = useState<Set<string>>(new Set());
+  const [substanciasOutros, setSubstanciasOutros] = useState("");
+
+  function toggleSubstancia(id: string) {
+    setSubstancias(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function handleNaoUsa(checked: boolean) {
+    setNaoUsaSubstancias(checked);
+    if (checked) {
+      setSubstancias(new Set());
+      setSubstanciasOutros("");
+    }
+  }
+
+  function substanciasValor() {
+    if (naoUsaSubstancias) return "nao_usa";
+    const partes = [...substancias].map(id => {
+      if (id === "outros") return substanciasOutros ? `Outros: ${substanciasOutros}` : "Outros";
+      return SUBSTANCIAS_OPTS.find(o => o.id === id)?.label ?? id;
+    });
+    return partes.join(", ");
+  }
 
   if (resultado) {
     return (
@@ -45,6 +102,11 @@ export default function NovoResidentePage() {
               setLgpdAceito(false);
               setHabilitarPortal(false);
               setTipoAcesso("email");
+              setCpf("");
+              setMotivoEntrada("");
+              setNaoUsaSubstancias(false);
+              setSubstancias(new Set());
+              setSubstanciasOutros("");
               formRef.current?.reset();
             }}
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-input bg-muted px-5 py-2.5 text-sm font-medium hover:bg-muted/80 transition-colors min-h-[44px]"
@@ -71,7 +133,7 @@ export default function NovoResidentePage() {
       nome_completo: fd.get("nome_completo") as string,
       nome_social: get("nome_social"),
       data_nascimento: get("data_nascimento"),
-      cpf: get("cpf"),
+      cpf: cpf.replace(/\D/g, "") ? cpf : undefined,
       rg: get("rg"),
       nis: get("nis"),
       naturalidade: get("naturalidade"),
@@ -144,16 +206,14 @@ export default function NovoResidentePage() {
               <label htmlFor="nome_completo" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Nome completo <span className="text-red-500">*</span>
               </label>
-              <input type="text" id="nome_completo" name="nome_completo" required
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" id="nome_completo" name="nome_completo" required className={inputCls} />
             </div>
 
             <div>
               <label htmlFor="nome_social" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Nome social <span className="text-xs text-muted-foreground">(opcional)</span>
               </label>
-              <input type="text" id="nome_social" name="nome_social"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" id="nome_social" name="nome_social" className={inputCls} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -161,26 +221,32 @@ export default function NovoResidentePage() {
                 <label htmlFor="data_nascimento" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Data de nascimento <span className="text-red-500">*</span>
                 </label>
-                <input type="date" id="data_nascimento" name="data_nascimento" required
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="date" id="data_nascimento" name="data_nascimento" required className={inputCls} />
               </div>
               <div>
                 <label htmlFor="cpf" className="block text-sm font-medium text-gray-700 mb-1.5">CPF</label>
-                <input type="text" id="cpf" name="cpf" placeholder="000.000.000-00" maxLength={14}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input
+                  type="text"
+                  id="cpf"
+                  name="cpf"
+                  value={cpf}
+                  onChange={e => setCpf(mascaraCPF(e.target.value))}
+                  placeholder="000.000.000-00"
+                  maxLength={14}
+                  inputMode="numeric"
+                  className={inputCls}
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="rg" className="block text-sm font-medium text-gray-700 mb-1.5">RG</label>
-                <input type="text" id="rg" name="rg" placeholder="00.000.000-0"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="text" id="rg" name="rg" placeholder="00.000.000-0" className={inputCls} />
               </div>
               <div>
                 <label htmlFor="nis" className="block text-sm font-medium text-gray-700 mb-1.5">NIS / Cadastro Único</label>
-                <input type="text" id="nis" name="nis"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="text" id="nis" name="nis" className={inputCls} />
               </div>
             </div>
 
@@ -188,15 +254,13 @@ export default function NovoResidentePage() {
               <label htmlFor="naturalidade" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Naturalidade (cidade/UF)
               </label>
-              <input type="text" id="naturalidade" name="naturalidade" placeholder="Ex: Ribeirão Preto/SP"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" id="naturalidade" name="naturalidade" placeholder="Ex: Ribeirão Preto/SP" className={inputCls} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="estado_civil" className="block text-sm font-medium text-gray-700 mb-1.5">Estado civil</label>
-                <select id="estado_civil" name="estado_civil"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <select id="estado_civil" name="estado_civil" className={inputCls}>
                   <option value="">Selecionar…</option>
                   <option value="solteiro">Solteiro(a)</option>
                   <option value="casado">Casado(a)</option>
@@ -207,8 +271,7 @@ export default function NovoResidentePage() {
               </div>
               <div>
                 <label htmlFor="escolaridade" className="block text-sm font-medium text-gray-700 mb-1.5">Escolaridade</label>
-                <select id="escolaridade" name="escolaridade"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <select id="escolaridade" name="escolaridade" className={inputCls}>
                   <option value="">Selecionar…</option>
                   <option value="sem_escolaridade">Sem escolaridade</option>
                   <option value="fundamental_incompleto">Fundamental incompleto</option>
@@ -230,15 +293,27 @@ export default function NovoResidentePage() {
                 <label htmlFor="tempo_rua_meses" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Tempo em situação de rua (meses)
                 </label>
-                <input type="number" id="tempo_rua_meses" name="tempo_rua_meses" min={0}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  id="tempo_rua_meses"
+                  name="tempo_rua_meses"
+                  placeholder="Ex: 12"
+                  className={inputCls}
+                />
               </div>
               <div>
                 <label htmlFor="motivo_entrada" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Motivo de entrada
                 </label>
-                <select id="motivo_entrada" name="motivo_entrada"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
+                <select
+                  id="motivo_entrada"
+                  name="motivo_entrada"
+                  value={motivoEntrada}
+                  onChange={e => setMotivoEntrada(e.target.value)}
+                  className={inputCls}
+                >
                   <option value="">Selecionar…</option>
                   <option value="busca_espontanea">Busca espontânea</option>
                   <option value="encaminhamento_creas">Encaminhamento CREAS</option>
@@ -251,6 +326,22 @@ export default function NovoResidentePage() {
                 </select>
               </div>
             </div>
+
+            {motivoEntrada === "outros" && (
+              <div>
+                <label htmlFor="motivo_entrada_descricao" className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Descreva o motivo <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="motivo_entrada_descricao"
+                  name="motivo_entrada_descricao"
+                  required
+                  placeholder="Especifique o motivo de entrada…"
+                  className={inputCls}
+                />
+              </div>
+            )}
 
             <div>
               <label htmlFor="motivo_situacao_rua" className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -269,29 +360,80 @@ export default function NovoResidentePage() {
               <label htmlFor="condicoes_saude" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Condições de saúde conhecidas
               </label>
-              <input type="text" id="condicoes_saude" name="condicoes_saude" placeholder="Ex: hipertensão, diabetes..."
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" id="condicoes_saude" name="condicoes_saude" placeholder="Ex: hipertensão, diabetes..." className={inputCls} />
             </div>
             <div>
               <label htmlFor="medicamentos" className="block text-sm font-medium text-gray-700 mb-1.5">
                 Medicamentos em uso
               </label>
-              <input type="text" id="medicamentos" name="medicamentos"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+              <input type="text" id="medicamentos" name="medicamentos" className={inputCls} />
             </div>
+
+            {/* Uso de substâncias — checkboxes */}
             <div>
-              <label htmlFor="uso_substancias" className="block text-sm font-medium text-gray-700 mb-1.5">
-                Uso de substâncias psicoativas
+              <p className="block text-sm font-medium text-gray-700 mb-2">Uso de substâncias psicoativas</p>
+
+              {/* Opção exclusiva: não usa */}
+              <label className="flex items-center gap-2.5 cursor-pointer mb-3 pb-3 border-b border-gray-100">
+                <span className={`size-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                  naoUsaSubstancias ? "bg-green-600 border-green-600" : "border-gray-300"
+                }`}>
+                  {naoUsaSubstancias && (
+                    <svg className="size-3 text-white" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </span>
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={naoUsaSubstancias}
+                  onChange={e => handleNaoUsa(e.target.checked)}
+                />
+                <span className="text-sm font-medium text-gray-800">Não usa substâncias</span>
               </label>
-              <select id="uso_substancias" name="uso_substancias"
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Selecionar…</option>
-                <option value="nao">Não</option>
-                <option value="alcool">Álcool</option>
-                <option value="crack">Crack</option>
-                <option value="multiplas">Múltiplas substâncias</option>
-                <option value="em_tratamento">Em tratamento</option>
-              </select>
+
+              {/* Grid de substâncias */}
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-2 transition-opacity ${naoUsaSubstancias ? "opacity-30 pointer-events-none" : ""}`}>
+                {SUBSTANCIAS_OPTS.map(opt => (
+                  <label key={opt.id} className="flex items-center gap-2.5 cursor-pointer group">
+                    <span className={`size-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                      substancias.has(opt.id)
+                        ? "bg-blue-700 border-blue-700"
+                        : "border-gray-300 group-hover:border-blue-400"
+                    }`}>
+                      {substancias.has(opt.id) && (
+                        <svg className="size-3 text-white" viewBox="0 0 12 12" fill="none">
+                          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="sr-only"
+                      checked={substancias.has(opt.id)}
+                      onChange={() => toggleSubstancia(opt.id)}
+                    />
+                    <span className="text-sm text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              {/* Campo aberto para "Outros" */}
+              {substancias.has("outros") && !naoUsaSubstancias && (
+                <div className="mt-3">
+                  <input
+                    type="text"
+                    value={substanciasOutros}
+                    onChange={e => setSubstanciasOutros(e.target.value)}
+                    placeholder="Especifique a(s) substância(s)…"
+                    className={inputCls}
+                  />
+                </div>
+              )}
+
+              {/* Hidden input para serializar o valor */}
+              <input type="hidden" name="uso_substancias" value={substanciasValor()} />
             </div>
           </div>
 
@@ -305,14 +447,13 @@ export default function NovoResidentePage() {
                 </label>
                 <input type="date" id="data_entrada" name="data_entrada" required
                   defaultValue={new Date().toISOString().split("T")[0]}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                  className={inputCls} />
               </div>
               <div>
                 <label htmlFor="quarto" className="block text-sm font-medium text-gray-700 mb-1.5">
                   Quarto / leito
                 </label>
-                <input type="text" id="quarto" name="quarto" placeholder="Ex: Quarto 3, Leito 2"
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                <input type="text" id="quarto" name="quarto" placeholder="Ex: Quarto 3, Leito 2" className={inputCls} />
               </div>
             </div>
             <div>
@@ -372,7 +513,7 @@ export default function NovoResidentePage() {
                     name="email_portal"
                     placeholder="email@exemplo.com"
                     required={habilitarPortal}
-                    className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className={inputCls}
                   />
                   <p className="text-xs text-muted-foreground mt-1">
                     Usado para identificar o acolhido ao entrar com Google ou para criar acesso com senha.
@@ -431,7 +572,7 @@ export default function NovoResidentePage() {
                       placeholder="Mínimo 6 caracteres"
                       minLength={6}
                       required={tipoAcesso === "senha"}
-                      className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      className={inputCls}
                     />
                     <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2">
                       Anote esta senha e comunique ao acolhido em particular. Ele poderá alterá-la depois.
@@ -492,16 +633,55 @@ export default function NovoResidentePage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Método de coleta do consentimento <span className="text-red-500">*</span>
               </label>
-              <select name="lgpd_consent_method" required
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="">Selecionar método…</option>
-                <option value="verbal_registrado">Verbal com testemunha (registrado pelo técnico)</option>
-                <option value="escrito">Assinatura em papel</option>
-                <option value="digital">Assinatura digital</option>
-              </select>
+              <div className="space-y-2">
+                {[
+                  {
+                    value: "verbal_registrado",
+                    titulo: "Declaração do técnico (mais comum)",
+                    descricao: "O técnico leu o aviso ao acolhido, que compreendeu e concordou verbalmente. O sistema registra data, hora e técnico responsável — sem papel.",
+                  },
+                  {
+                    value: "digital",
+                    titulo: "Confirmação digital no dispositivo",
+                    descricao: "O acolhido visualizou e confirmou o aviso diretamente no tablet/celular. O sistema registra dispositivo, data e hora automaticamente.",
+                  },
+                  {
+                    value: "escrito",
+                    titulo: "Assinatura em papel (arquivo físico)",
+                    descricao: "Termo impresso assinado pelo acolhido e arquivado fisicamente. Use quando houver exigência específica da parceria ou órgão financiador.",
+                  },
+                ].map(opt => (
+                  <label key={opt.value} className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/30 transition-colors bg-white">
+                    <input
+                      type="radio"
+                      name="lgpd_consent_method"
+                      value={opt.value}
+                      required
+                      className="mt-0.5 text-blue-600 shrink-0"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{opt.titulo}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{opt.descricao}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="lgpd_obs" className="block text-sm font-medium text-gray-700 mb-1.5">
+                Observações sobre o processo <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                id="lgpd_obs"
+                name="lgpd_obs"
+                placeholder="Ex: acolhido acompanhado de familiar; apresentava dificuldade de leitura…"
+                className={inputCls}
+              />
             </div>
 
             <label className="flex items-start gap-3 cursor-pointer">
