@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { StickyNote, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { registrarAnotacao } from "@/lib/actions/prontuario";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,6 +20,7 @@ export function RegistrarAnotacaoForm({ residenteId }: { residenteId: string }) 
   const [open, setOpen] = useState(false);
   const [conteudo, setConteudo] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,13 +30,13 @@ export function RegistrarAnotacaoForm({ residenteId }: { residenteId: string }) 
     }
 
     setLoading(true);
-    // TODO: substituir por server action quando o banco estiver conectado
-    await new Promise((r) => setTimeout(r, 600));
+    const res = await registrarAnotacao({ residenteId, conteudo });
     setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setOpen(false);
     setConteudo("");
     toast.success("Anotação técnica registrada.");
-    console.log("registrar anotacao", { residenteId, conteudo });
+    router.refresh();
   }
 
   return (

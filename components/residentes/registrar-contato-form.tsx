@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, CheckCircle2, X } from "lucide-react";
+import { toast } from "sonner";
+import { registrarHistoricoContato } from "@/lib/actions/prontuario";
 
 export function RegistrarContatoForm({ residenteId }: { residenteId: string }) {
   const [aberto, setAberto] = useState(false);
@@ -9,23 +12,25 @@ export function RegistrarContatoForm({ residenteId }: { residenteId: string }) {
   const [descricao, setDescricao] = useState("");
   const [tipo, setTipo] = useState("Visita presencial");
   const [data, setData] = useState(new Date().toISOString().split("T")[0]);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  function handleSalvar() {
+  async function handleSalvar() {
     if (!descricao.trim()) return;
-    void residenteId;
+    setLoading(true);
+    const res = await registrarHistoricoContato({ residenteId, tipoContato: tipo, descricao, dataContato: data });
+    setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setSalvo(true);
-    setTimeout(() => {
-      setSalvo(false);
-      setAberto(false);
-      setDescricao("");
-    }, 2000);
+    router.refresh();
+    setTimeout(() => { setSalvo(false); setAberto(false); setDescricao(""); }, 1500);
   }
 
   if (salvo) {
     return (
       <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <CheckCircle2 className="size-4 shrink-0" />
-        Contato registrado! (conecte o banco para persistir)
+        Contato registrado com sucesso!
       </div>
     );
   }

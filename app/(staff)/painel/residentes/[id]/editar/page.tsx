@@ -1,16 +1,64 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { editarResidente } from "@/lib/actions/residentes";
 import { getMockResidente } from "@/lib/mock-data";
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
+
+interface ResidenteData {
+  id: string;
+  nome_completo: string;
+  nome_social: string | null;
+  data_nascimento: string | null;
+  cpf: string | null;
+  rg: string | null;
+  nis: string | null;
+  naturalidade: string | null;
+  numero_prontuario: string;
+  fase_atual: number;
+  status: string;
+  data_entrada: string;
+  data_saida: string | null;
+  motivo_saida: string | null;
+  tempo_situacao_rua: string | null;
+  ultimo_endereco: string | null;
+}
 
 export default function EditarResidentePage() {
   const { id } = useParams<{ id: string }>();
-  const r = getMockResidente(id);
+  const router = useRouter();
+  const [r, setR] = useState<ResidenteData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   const [salvo, setSalvo] = useState(false);
 
+  useEffect(() => {
+    if (DEV_MODE) {
+      const mock = getMockResidente(id);
+      if (mock) setR(mock as ResidenteData);
+      setLoading(false);
+      return;
+    }
+    const supabase = createClient();
+    supabase
+      .from("residentes")
+      .select("id, nome_completo, nome_social, data_nascimento, cpf, rg, nis, naturalidade, numero_prontuario, fase_atual, status, data_entrada, data_saida, motivo_saida, tempo_situacao_rua, ultimo_endereco")
+      .eq("id", id)
+      .is("deleted_at", null)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setR(data as ResidenteData);
+        setLoading(false);
+      });
+  }, [id]);
+
+  if (loading) return <p className="text-muted-foreground p-4">Carregando...</p>;
   if (!r) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
 
   const nomeExibido = r.nome_social ?? r.nome_completo;
@@ -33,9 +81,36 @@ export default function EditarResidentePage() {
     );
   }
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const get = (k: string) => (fd.get(k) as string)?.trim() || undefined;
+
+    if (DEV_MODE) { setSalvo(true); return; }
+
+    setSalvando(true);
+    const res = await editarResidente({
+      id,
+      nome_completo: fd.get("nome_completo") as string,
+      nome_social: get("nome_social"),
+      data_nascimento: get("data_nascimento"),
+      cpf: get("cpf"),
+      rg: get("rg"),
+      nis: get("nis"),
+      naturalidade: get("naturalidade"),
+      tempo_situacao_rua: get("tempo_situacao_rua"),
+      ultimo_endereco: get("ultimo_endereco"),
+    });
+    setSalvando(false);
+
+    if ("error" in res) { toast.error(res.error); return; }
+    toast.success("Dados atualizados com sucesso!");
+    setSalvo(true);
+    router.refresh();
+  }
+
   return (
     <div className="max-w-2xl space-y-5">
-      {/* Voltar */}
       <Link
         href={`/painel/residentes/${id}`}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-gray-900 transition-colors"
@@ -50,14 +125,14 @@ export default function EditarResidentePage() {
         <p className="text-xs text-muted-foreground mt-0.5">{r.numero_prontuario}</p>
       </div>
 
-      <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); setSalvo(true); }}>
+      <form className="space-y-5" onSubmit={handleSubmit}>
         {/* Identificação */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
           <h2 className="font-semibold text-gray-900">Identificação</h2>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Nome completo</label>
-            <input type="text" defaultValue={r.nome_completo} required
+            <input type="text" name="nome_completo" defaultValue={r.nome_completo} required
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
@@ -65,19 +140,19 @@ export default function EditarResidentePage() {
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Nome social <span className="text-xs text-muted-foreground">(opcional)</span>
             </label>
-            <input type="text" defaultValue={r.nome_social ?? ""}
+            <input type="text" name="nome_social" defaultValue={r.nome_social ?? ""}
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de nascimento</label>
-              <input type="date" defaultValue={r.data_nascimento ?? ""}
+              <input type="date" name="data_nascimento" defaultValue={r.data_nascimento ?? ""}
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">CPF</label>
-              <input type="text" defaultValue={r.cpf ?? ""} placeholder="000.000.000-00" maxLength={14}
+              <input type="text" name="cpf" defaultValue={r.cpf ?? ""} placeholder="000.000.000-00" maxLength={14}
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
@@ -85,70 +160,21 @@ export default function EditarResidentePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">RG</label>
-              <input type="text" defaultValue={r.rg ?? ""}
+              <input type="text" name="rg" defaultValue={r.rg ?? ""}
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">NIS / CadÚnico</label>
-              <input type="text" defaultValue={r.nis ?? ""}
+              <input type="text" name="nis" defaultValue={r.nis ?? ""}
                 className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
             </div>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Naturalidade</label>
-            <input type="text" defaultValue={r.naturalidade ?? ""} placeholder="Cidade/UF"
+            <input type="text" name="naturalidade" defaultValue={r.naturalidade ?? ""} placeholder="Cidade/UF"
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
-        </div>
-
-        {/* Situação no programa */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
-          <h2 className="font-semibold text-gray-900">Situação no programa</h2>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Fase atual</label>
-              <select defaultValue={String(r.fase_atual)}
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="1">Fase 1 — Acolhimento</option>
-                <option value="2">Fase 2 — Reorganização</option>
-                <option value="3">Fase 3 — Autonomia</option>
-                <option value="4">Fase 4 — Preparação</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-              <select defaultValue={r.status}
-                className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="ativo">Ativo</option>
-                <option value="desligado">Desligado</option>
-                <option value="evadido">Evadido</option>
-                <option value="transferido">Transferido</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de entrada</label>
-            <input type="date" defaultValue={r.data_entrada}
-              className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-          </div>
-
-          {(r.status === "desligado" || r.status === "evadido" || r.status === "transferido") && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Data de saída</label>
-                <input type="date" defaultValue={r.data_saida ?? ""}
-                  className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Motivo da saída</label>
-                <textarea defaultValue={r.motivo_saida ?? ""} rows={2}
-                  className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
-              </div>
-            </>
-          )}
         </div>
 
         {/* Situação de rua */}
@@ -156,26 +182,53 @@ export default function EditarResidentePage() {
           <h2 className="font-semibold text-gray-900">Situação de rua</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Tempo em situação de rua <span className="text-xs text-muted-foreground">(ex: &quot;8 meses&quot;, &quot;2 anos&quot;)</span>
+              Tempo em situação de rua
             </label>
-            <input type="text" defaultValue={r.tempo_situacao_rua ?? ""}
+            <input type="text" name="tempo_situacao_rua" defaultValue={r.tempo_situacao_rua ?? ""} placeholder='Ex: "8 meses", "2 anos"'
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Último endereço conhecido</label>
-            <input type="text" defaultValue={r.ultimo_endereco ?? ""}
+            <input type="text" name="ultimo_endereco" defaultValue={r.ultimo_endereco ?? ""}
               className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
           </div>
+        </div>
+
+        {/* Info somente leitura */}
+        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-4 space-y-2">
+          <h2 className="font-semibold text-gray-700 text-sm">Informações do programa (somente leitura)</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Prontuário</p>
+              <p className="font-medium font-mono">{r.numero_prontuario}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Fase</p>
+              <p className="font-medium">Fase {r.fase_atual}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Status</p>
+              <p className="font-medium capitalize">{r.status}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Entrada</p>
+              <p className="font-medium">{r.data_entrada}</p>
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            Para alterar fase ou status, use os controles no prontuário.
+          </p>
         </div>
 
         {/* Botões */}
         <div className="flex flex-col sm:flex-row gap-3">
           <button
             type="submit"
-            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors min-h-[48px]"
+            disabled={salvando}
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-xl bg-blue-700 px-6 py-3 text-sm font-semibold text-white hover:bg-blue-800 transition-colors min-h-[48px] disabled:opacity-50"
           >
             <Save className="size-4" />
-            Salvar alterações
+            {salvando ? "Salvando..." : "Salvar alterações"}
           </button>
           <Link
             href={`/painel/residentes/${id}`}

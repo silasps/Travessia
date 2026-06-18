@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { TrendingUp, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
+import { mudarFase } from "@/lib/actions/prontuario";
 
 const FASES = [
   { num: 1, label: "Fase 1 — Acolhimento" },
@@ -20,23 +23,25 @@ export function MudarFaseBtn({ residenteId, faseAtual }: Props) {
   const [faseSelecionada, setFaseSelecionada] = useState(faseAtual);
   const [justificativa, setJustificativa] = useState("");
   const [salvo, setSalvo] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  function handleSalvar() {
+  async function handleSalvar() {
     if (faseSelecionada === faseAtual || !justificativa.trim()) return;
-    void residenteId;
+    setLoading(true);
+    const res = await mudarFase({ residenteId, novaFase: faseSelecionada, justificativa });
+    setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setSalvo(true);
-    setTimeout(() => {
-      setSalvo(false);
-      setAberto(false);
-      setJustificativa("");
-    }, 2500);
+    router.refresh();
+    setTimeout(() => { setSalvo(false); setAberto(false); setJustificativa(""); }, 1500);
   }
 
   if (salvo) {
     return (
       <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
         <CheckCircle2 className="size-4 shrink-0" />
-        Fase atualizada para {FASES[faseSelecionada - 1].label}! (conecte o banco para persistir)
+        Fase atualizada para {FASES[faseSelecionada - 1].label}!
       </div>
     );
   }

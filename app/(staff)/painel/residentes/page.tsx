@@ -9,6 +9,7 @@ import { formatDate, formatTempoNoPrograma, maskCPF } from "@/lib/utils/format";
 import { ResidenteRow } from "@/components/residentes/residente-row";
 import { AutoSubmitSelect } from "@/components/residentes/auto-submit-select";
 import { BuscaInput } from "@/components/residentes/busca-input";
+import { VerPortalBtn } from "@/components/residentes/ver-portal-btn";
 
 export const metadata: Metadata = { title: "Acolhidos" };
 
@@ -204,7 +205,10 @@ export default async function ResidentesPage({
                     )}
                     <p className="text-xs text-muted-foreground mt-0.5">{r.numero_prontuario}</p>
                   </div>
-                  <StatusBadge status={r.status} />
+                  <div className="flex items-center gap-1.5">
+                    <VerPortalBtn residenteId={r.id} nome={r.nome_social ?? r.nome_completo} />
+                    <StatusBadge status={r.status} />
+                  </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 mt-3">
                   <FaseBadge fase={r.fase_atual} compact />
@@ -231,6 +235,7 @@ export default async function ResidentesPage({
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Entrada</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Tempo</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                  <th className="px-4 py-3 w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -257,6 +262,9 @@ export default async function ResidentesPage({
                     <td className="px-4 py-3 text-gray-600">{formatTempoNoPrograma(r.data_entrada)}</td>
                     <td className="px-4 py-3">
                       <StatusBadge status={r.status} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <VerPortalBtn residenteId={r.id} nome={r.nome_social ?? r.nome_completo} />
                     </td>
                   </ResidenteRow>
                 ))}

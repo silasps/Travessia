@@ -1,9 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Send } from "lucide-react";
+import { toast } from "sonner";
+import { createClient } from "@/lib/supabase/client";
+import { criarOcorrencia } from "@/lib/actions/prontuario";
 import { getMockResidentes } from "@/lib/mock-data";
+import { SelecionarResidente } from "@/components/residentes/selecionar-residente";
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
 const GRAVIDADES = [
   { value: "leve",       label: "Leve",       desc: "Situação de baixo impacto, sem risco à integridade" },
@@ -12,10 +19,27 @@ const GRAVIDADES = [
   { value: "gravissima", label: "Gravíssima", desc: "Risco à vida, violência física ou ameaça grave" },
 ];
 
+type ResidenteOpt = { id: string; nome_completo: string; nome_social?: string | null; numero_prontuario: string };
+
 export default function NovaOcorrenciaPage() {
-  const residentes = getMockResidentes("ativo");
+  const [residentes, setResidentes] = useState<ResidenteOpt[]>(DEV_MODE ? getMockResidentes("ativo") : []);
   const [gravidade, setGravidade] = useState("moderada");
   const [enviado, setEnviado] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (DEV_MODE) return;
+    const supabase = createClient();
+    supabase
+      .from("residentes")
+      .select("id, nome_completo, nome_social, numero_prontuario")
+      .eq("status", "ativo")
+      .order("nome_completo")
+      .then(({ data }) => {
+        if (data) setResidentes(data);
+      });
+  }, []);
 
   if (enviado) {
     return (
@@ -65,32 +89,41 @@ export default function NovaOcorrenciaPage() {
 
       <form
         className="space-y-5"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          // Em dev: apenas simula o envio
+          const fd = new FormData(e.currentTarget);
+          const residenteId = fd.get("residente_id") as string;
+          const dataOcorrencia = fd.get("data_ocorrencia") as string;
+          const descricao = fd.get("descricao") as string;
+          const local = (fd.get("local") as string) || undefined;
+          const testemunhas = (fd.get("testemunhas") as string) || undefined;
+
+          if (DEV_MODE) { setEnviado(true); return; }
+
+          setSalvando(true);
+          const res = await criarOcorrencia({
+            residenteId,
+            dataOcorrencia,
+            gravidade: gravidade as "leve" | "moderada" | "grave" | "gravissima",
+            descricao,
+            local,
+            testemunhas,
+          });
+          setSalvando(false);
+          if ("error" in res) { toast.error(res.error); return; }
+          toast.success("Ocorrência registrada com sucesso.");
           setEnviado(true);
+          router.refresh();
         }}
       >
         {/* Acolhido */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-4">
           <h2 className="font-semibold text-gray-900">Acolhido envolvido</h2>
           <div>
-            <label htmlFor="residente_id" className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Acolhido <span className="text-red-500">*</span>
             </label>
-            <select
-              id="residente_id"
-              name="residente_id"
-              required
-              className="w-full h-11 rounded-xl border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">Selecionar acolhido…</option>
-              {residentes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.nome_social ?? r.nome_completo} — {r.numero_prontuario}
-                </option>
-              ))}
-            </select>
+            <SelecionarResidente residentes={residentes} name="residente_id" />
           </div>
         </div>
 

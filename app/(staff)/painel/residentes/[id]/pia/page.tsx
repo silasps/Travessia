@@ -1,13 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ArrowLeft, Save, FileText, Plus, Trash2,
   CheckCircle2, ClipboardList, ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
 import { getMockResidente, getMockPia } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import { salvarPIA } from "@/lib/actions/prontuario";
+
+const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -214,12 +219,28 @@ function SituacaoBlock({
 
 export default function PiaPage() {
   const { id } = useParams<{ id: string }>();
-  const residente = getMockResidente(id);
-  const pia = getMockPia(id);
+  const router = useRouter();
+
+  const [loaded, setLoaded] = useState(false);
+  const [nomeExibido, setNomeExibido] = useState<string | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [piaExistente, setPiaExistente] = useState<any>(null);
+  const [salvando, setSalvando] = useState(false);
 
   const [etapa, setEtapa] = useState<Etapa>("etapa1");
   const [secaoAtiva, setSecaoAtiva] = useState<SecaoEtapa1>("identificacao");
   const [salvo, setSalvo] = useState(false);
+
+  // Seção 1 — Identificação (controlled)
+  const [idFields, setIdFields] = useState({
+    nome_social: "", apelido: "", naturalidade: "",
+    sexo: "", orientacao_sexual: "", cor_raca: "",
+    situacao_civil: "", rg: "", cpf: "", nis: "",
+    cpts: "", titulo_eleitor: "", hygia: "", cns: "",
+    local_permanencia: "", local_pernoite: "",
+    escolaridade: "", profissao_anterior: "",
+  });
+  const [motivoProcura, setMotivoProcura] = useState("");
 
   // Seção 2 — Procedência
   const [formasAcesso, setFormasAcesso] = useState<Set<string>>(new Set());
@@ -262,9 +283,87 @@ export default function PiaPage() {
   const [registros, setRegistros] = useState<RegistroAcompanhamento[]>([]);
   const [novoReg, setNovoReg] = useState<RegistroAcompanhamento>({ data: "", descricao: "", tecnico: "" });
 
-  if (!residente) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
+  useEffect(() => {
+    function loadFromFicha(fi: Record<string, unknown>) {
+      setIdFields({
+        nome_social: (fi.nome_social as string) ?? "",
+        apelido: (fi.apelido as string) ?? "",
+        naturalidade: (fi.naturalidade as string) ?? "",
+        sexo: (fi.sexo as string) ?? "",
+        orientacao_sexual: (fi.orientacao_sexual as string) ?? "",
+        cor_raca: (fi.cor_raca as string) ?? "",
+        situacao_civil: (fi.situacao_civil as string) ?? "",
+        rg: (fi.rg as string) ?? "",
+        cpf: (fi.cpf as string) ?? "",
+        nis: (fi.nis as string) ?? "",
+        cpts: (fi.cpts as string) ?? "",
+        titulo_eleitor: (fi.titulo_eleitor as string) ?? "",
+        hygia: (fi.hygia as string) ?? "",
+        cns: (fi.cns as string) ?? "",
+        local_permanencia: (fi.local_permanencia as string) ?? "",
+        local_pernoite: (fi.local_pernoite as string) ?? "",
+        escolaridade: (fi.escolaridade as string) ?? "",
+        profissao_anterior: (fi.profissao_anterior as string) ?? "",
+      });
+      if (fi.motivo_procura) setMotivoProcura(fi.motivo_procura as string);
+      if (Array.isArray(fi.formas_acesso)) setFormasAcesso(new Set(fi.formas_acesso as string[]));
+      if (fi.outras_politicas) setOutrasPolit(fi.outras_politicas as string);
+      if (fi.outros_acesso) setOutrosAcesso(fi.outros_acesso as string);
+      if (Array.isArray(fi.docs_encaminhamento)) setDocsEnc(new Set(fi.docs_encaminhamento as string[]));
+      if (fi.outros_docs) setOutrosDocs(fi.outros_docs as string);
+      if (Array.isArray(fi.membros_familia)) setMembros(fi.membros_familia as MembroFamilia[]);
+      if (fi.participa_programas) setParticipaProg(fi.participa_programas as "" | "nao" | "sim");
+      if (fi.beneficios_renda) setBeneficiosRenda(fi.beneficios_renda as Record<string, string>);
+      if (fi.outros_beneficios_nome) setOutrosBenefNome(fi.outros_beneficios_nome as string);
+      if (fi.outros_beneficios_valor) setOutrosBenefVal(fi.outros_beneficios_valor as string);
+      if (Array.isArray(fi.beneficios_eventuais)) setBeneficiosEventuais(new Set(fi.beneficios_eventuais as string[]));
+      if (fi.participa_eventuais) setParticipaEventuais(fi.participa_eventuais as "" | "nao" | "sim");
+      if (fi.cartao_transporte) setCartaoTransporte(fi.cartao_transporte as "" | "nao" | "sim");
+      if (fi.utiliza_servicos) setUtilizaServicos(fi.utiliza_servicos as "" | "nao" | "sim");
+      if (Array.isArray(fi.servicos_basica)) setServicosBasica(new Set(fi.servicos_basica as string[]));
+      if (Array.isArray(fi.servicos_media)) setServicosMedia(new Set(fi.servicos_media as string[]));
+      if (Array.isArray(fi.servicos_alta)) setServicosAlta(new Set(fi.servicos_alta as string[]));
+      if (fi.priv_liberdade) setPrivLib(fi.priv_liberdade as "" | "nao" | "sim");
+      if (Array.isArray(fi.priv_liberdade_itens)) setPrivLibItens(fi.priv_liberdade_itens as SituacaoItem[]);
+      if (fi.med_socioeducativa) setMedSocio(fi.med_socioeducativa as "" | "nao" | "sim");
+      if (Array.isArray(fi.med_socioeducativa_itens)) setMedSocioItens(fi.med_socioeducativa_itens as SituacaoItem[]);
+      if (fi.acolhimento_inst) setAcolhInst(fi.acolhimento_inst as "" | "nao" | "sim");
+      if (Array.isArray(fi.acolhimento_inst_itens)) setAcolhInstItens(fi.acolhimento_inst_itens as SituacaoItem[]);
+      if (fi.internado) setInstInternado(fi.internado as "" | "nao" | "sim");
+      if (Array.isArray(fi.internado_itens)) setInstInternadoItens(fi.internado_itens as SituacaoItem[]);
+    }
 
-  const nomeExibido = residente.nome_social ?? residente.nome_completo;
+    if (DEV_MODE) {
+      const r = getMockResidente(id);
+      const p = getMockPia(id);
+      setNomeExibido(r ? (r.nome_social ?? r.nome_completo) : null);
+      setPiaExistente(p ?? null);
+      if (p?.secao_identificacao) loadFromFicha(p.secao_identificacao as Record<string, unknown>);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pa = (p?.secao_plano_acao as any);
+      if (pa?.registros) setRegistros(pa.registros as RegistroAcompanhamento[]);
+      setLoaded(true);
+      return;
+    }
+
+    const supabase = createClient();
+    Promise.all([
+      supabase.from("residentes").select("nome_completo, nome_social").eq("id", id).maybeSingle(),
+      supabase.from("pia").select("*").eq("residente_id", id).maybeSingle(),
+    ]).then(([{ data: r }, { data: p }]) => {
+      setNomeExibido(r ? (r.nome_social ?? r.nome_completo) : null);
+      setPiaExistente(p ?? null);
+      if (p?.secao_identificacao) loadFromFicha(p.secao_identificacao as Record<string, unknown>);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const pa = (p?.secao_plano_acao as any);
+      if (pa?.registros) setRegistros(pa.registros as RegistroAcompanhamento[]);
+      setLoaded(true);
+    });
+  }, [id]);
+
+  if (!loaded) return <p className="text-muted-foreground p-4">Carregando PIA…</p>;
+  if (!nomeExibido) return <p className="text-muted-foreground p-4">Acolhido não encontrado.</p>;
+
   const secaoIdx = SECOES_ETAPA1.findIndex((s) => s.id === secaoAtiva);
   const isUltima  = secaoIdx === SECOES_ETAPA1.length - 1;
   const isPrimeira = secaoIdx === 0;
@@ -299,6 +398,63 @@ export default function PiaPage() {
     if (!novoReg.data || !novoReg.descricao) return;
     setRegistros(prev => [...prev, novoReg]);
     setNovoReg({ data: "", descricao: "", tecnico: "" });
+  }
+
+  // ─── Save handlers ───────────────────────────────────────────────────────────
+
+  async function handleSalvarEtapa1() {
+    if (DEV_MODE) { setSalvo(true); return; }
+    setSalvando(true);
+    const res = await salvarPIA({
+      residenteId: id,
+      fichaIdentificacao: {
+        ...idFields,
+        motivo_procura: motivoProcura,
+        formas_acesso: [...formasAcesso],
+        outras_politicas: outrasPolit,
+        outros_acesso: outrosAcesso,
+        docs_encaminhamento: [...docsEnc],
+        outros_docs: outrosDocs,
+        membros_familia: membros,
+        participa_programas: participaProg,
+        beneficios_renda: beneficiosRenda,
+        outros_beneficios_nome: outrosBenefNome,
+        outros_beneficios_valor: outrosBenefVal,
+        participa_eventuais: participaEventuais,
+        beneficios_eventuais: [...beneficiosEventuais],
+        cartao_transporte: cartaoTransporte,
+        utiliza_servicos: utilizaServicos,
+        servicos_basica: [...servicosBasica],
+        servicos_media: [...servicosMedia],
+        servicos_alta: [...servicosAlta],
+        priv_liberdade: privLib,
+        priv_liberdade_itens: privLibItens,
+        med_socioeducativa: medSocio,
+        med_socioeducativa_itens: medSocioItens,
+        acolhimento_inst: acolhInst,
+        acolhimento_inst_itens: acolhInstItens,
+        internado: instInternado,
+        internado_itens: instInternadoItens,
+      },
+    });
+    setSalvando(false);
+    if ("error" in res) { toast.error(res.error); return; }
+    toast.success("Etapa 1 salva com sucesso!");
+    setSalvo(true);
+    router.refresh();
+  }
+
+  async function handleSalvarEtapa6() {
+    if (DEV_MODE) { toast.success("Acompanhamento atualizado (DEV_MODE)"); return; }
+    setSalvando(true);
+    const res = await salvarPIA({
+      residenteId: id,
+      registrosAcompanhamento: registros,
+    });
+    setSalvando(false);
+    if ("error" in res) { toast.error(res.error); return; }
+    toast.success("Acompanhamento salvo com sucesso!");
+    router.refresh();
   }
 
   // ─── Success screen ──────────────────────────────────────────────────────────
@@ -340,7 +496,7 @@ export default function PiaPage() {
           PIA — Plano Individual de Atendimento
         </p>
         <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5">{nomeExibido}</h1>
-        {pia && (
+        {piaExistente && (
           <span className="inline-block mt-1 text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-medium">
             Editando PIA existente
           </span>
@@ -413,22 +569,30 @@ export default function PiaPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="sm:col-span-2">
                     <FieldLabel>Nome Social</FieldLabel>
-                    <input type="text" defaultValue={residente.nome_social ?? ""} placeholder="Nome social (se houver)" className={inputCls} />
+                    <input type="text" value={idFields.nome_social}
+                      onChange={e => setIdFields(prev => ({ ...prev, nome_social: e.target.value }))}
+                      placeholder="Nome social (se houver)" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>Apelido</FieldLabel>
-                    <input type="text" placeholder="Apelido" className={inputCls} />
+                    <input type="text" value={idFields.apelido}
+                      onChange={e => setIdFields(prev => ({ ...prev, apelido: e.target.value }))}
+                      placeholder="Apelido" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>Naturalidade</FieldLabel>
-                    <input type="text" defaultValue={(pia?.secao_identificacao?.naturalidade as string) ?? ""} placeholder="Cidade/UF" className={inputCls} />
+                    <input type="text" value={idFields.naturalidade}
+                      onChange={e => setIdFields(prev => ({ ...prev, naturalidade: e.target.value }))}
+                      placeholder="Cidade/UF" className={inputCls} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="col-span-2 sm:col-span-1">
                     <FieldLabel>Sexo</FieldLabel>
-                    <select className={selectCls}>
+                    <select value={idFields.sexo}
+                      onChange={e => setIdFields(prev => ({ ...prev, sexo: e.target.value }))}
+                      className={selectCls}>
                       <option value="">Selecionar…</option>
                       <option value="M">Masculino</option>
                       <option value="F">Feminino</option>
@@ -437,7 +601,9 @@ export default function PiaPage() {
                   </div>
                   <div className="col-span-2 sm:col-span-1">
                     <FieldLabel>Orientação Sexual</FieldLabel>
-                    <select className={selectCls}>
+                    <select value={idFields.orientacao_sexual}
+                      onChange={e => setIdFields(prev => ({ ...prev, orientacao_sexual: e.target.value }))}
+                      className={selectCls}>
                       <option value="">Selecionar…</option>
                       <option value="heterossexual">Heterossexual</option>
                       <option value="homossexual">Homossexual</option>
@@ -447,7 +613,9 @@ export default function PiaPage() {
                   </div>
                   <div>
                     <FieldLabel>Cor / Raça</FieldLabel>
-                    <select className={selectCls}>
+                    <select value={idFields.cor_raca}
+                      onChange={e => setIdFields(prev => ({ ...prev, cor_raca: e.target.value }))}
+                      className={selectCls}>
                       <option value="">Selecionar…</option>
                       <option value="branca">Branca</option>
                       <option value="preta">Preta</option>
@@ -458,7 +626,9 @@ export default function PiaPage() {
                   </div>
                   <div>
                     <FieldLabel>Estado Civil</FieldLabel>
-                    <select defaultValue={(pia?.secao_identificacao?.situacao_civil as string) ?? ""} className={selectCls}>
+                    <select value={idFields.situacao_civil}
+                      onChange={e => setIdFields(prev => ({ ...prev, situacao_civil: e.target.value }))}
+                      className={selectCls}>
                       <option value="">Selecionar…</option>
                       <option value="solteiro">Solteiro(a)</option>
                       <option value="casado">Casado(a)</option>
@@ -472,53 +642,73 @@ export default function PiaPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <FieldLabel>RG</FieldLabel>
-                    <input type="text" placeholder="Número do RG" className={inputCls} />
+                    <input type="text" value={idFields.rg}
+                      onChange={e => setIdFields(prev => ({ ...prev, rg: e.target.value }))}
+                      placeholder="Número do RG" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>CPF</FieldLabel>
-                    <input type="text" placeholder="000.000.000-00" className={inputCls} />
+                    <input type="text" value={idFields.cpf}
+                      onChange={e => setIdFields(prev => ({ ...prev, cpf: e.target.value }))}
+                      placeholder="000.000.000-00" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>NIS / PIS</FieldLabel>
-                    <input type="text" placeholder="Número NIS" className={inputCls} />
+                    <input type="text" value={idFields.nis}
+                      onChange={e => setIdFields(prev => ({ ...prev, nis: e.target.value }))}
+                      placeholder="Número NIS" className={inputCls} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <FieldLabel>CPTS (Carteira de Trabalho)</FieldLabel>
-                    <input type="text" placeholder="Número" className={inputCls} />
+                    <input type="text" value={idFields.cpts}
+                      onChange={e => setIdFields(prev => ({ ...prev, cpts: e.target.value }))}
+                      placeholder="Número" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>Título de Eleitor</FieldLabel>
-                    <input type="text" placeholder="Número" className={inputCls} />
+                    <input type="text" value={idFields.titulo_eleitor}
+                      onChange={e => setIdFields(prev => ({ ...prev, titulo_eleitor: e.target.value }))}
+                      placeholder="Número" className={inputCls} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <FieldLabel>Hygia (cartão municipal saúde)</FieldLabel>
-                    <input type="text" placeholder="Número Hygia" className={inputCls} />
+                    <input type="text" value={idFields.hygia}
+                      onChange={e => setIdFields(prev => ({ ...prev, hygia: e.target.value }))}
+                      placeholder="Número Hygia" className={inputCls} />
                   </div>
                   <div>
                     <FieldLabel>Cartão SUS (CNS)</FieldLabel>
-                    <input type="text" placeholder="Número CNS" className={inputCls} />
+                    <input type="text" value={idFields.cns}
+                      onChange={e => setIdFields(prev => ({ ...prev, cns: e.target.value }))}
+                      placeholder="Número CNS" className={inputCls} />
                   </div>
                 </div>
 
                 <div>
                   <FieldLabel>Local de maior tempo de permanência</FieldLabel>
-                  <input type="text" placeholder="Ex: Praça Quinze, Centro…" className={inputCls} />
+                  <input type="text" value={idFields.local_permanencia}
+                    onChange={e => setIdFields(prev => ({ ...prev, local_permanencia: e.target.value }))}
+                    placeholder="Ex: Praça Quinze, Centro…" className={inputCls} />
                 </div>
                 <div>
                   <FieldLabel>Local de pernoite</FieldLabel>
-                  <input type="text" placeholder="Onde dormia antes do acolhimento" className={inputCls} />
+                  <input type="text" value={idFields.local_pernoite}
+                    onChange={e => setIdFields(prev => ({ ...prev, local_pernoite: e.target.value }))}
+                    placeholder="Onde dormia antes do acolhimento" className={inputCls} />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <FieldLabel>Escolaridade</FieldLabel>
-                    <select defaultValue={(pia?.secao_identificacao?.escolaridade as string) ?? ""} className={selectCls}>
+                    <select value={idFields.escolaridade}
+                      onChange={e => setIdFields(prev => ({ ...prev, escolaridade: e.target.value }))}
+                      className={selectCls}>
                       <option value="">Selecionar…</option>
                       <option value="sem_escolaridade">Sem escolaridade</option>
                       <option value="fund_incompleto">Fund. incompleto</option>
@@ -531,7 +721,9 @@ export default function PiaPage() {
                   </div>
                   <div>
                     <FieldLabel>Profissão / ocupação anterior</FieldLabel>
-                    <input type="text" defaultValue={(pia?.secao_identificacao?.profissao_anterior as string) ?? ""} placeholder="Última ocupação" className={inputCls} />
+                    <input type="text" value={idFields.profissao_anterior}
+                      onChange={e => setIdFields(prev => ({ ...prev, profissao_anterior: e.target.value }))}
+                      placeholder="Última ocupação" className={inputCls} />
                   </div>
                 </div>
               </>
@@ -589,6 +781,8 @@ export default function PiaPage() {
                   <SectionLabel>2.3. Motivo de procura / encaminhamento</SectionLabel>
                   <textarea
                     rows={4}
+                    value={motivoProcura}
+                    onChange={e => setMotivoProcura(e.target.value)}
                     placeholder="Descreva o motivo principal que levou ao encaminhamento ou à procura espontânea…"
                     className={textareaCls}
                   />
@@ -866,11 +1060,12 @@ export default function PiaPage() {
             ) : (
               <button
                 type="button"
-                onClick={() => setSalvo(true)}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px]"
+                onClick={handleSalvarEtapa1}
+                disabled={salvando}
+                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px] disabled:opacity-50"
               >
                 <Save className="size-4" />
-                Salvar Etapa 1
+                {salvando ? "Salvando…" : "Salvar Etapa 1"}
               </button>
             )}
           </div>
@@ -954,6 +1149,19 @@ export default function PiaPage() {
               <p className="text-sm text-gray-400">Nenhum registro de acompanhamento ainda.</p>
               <p className="text-xs text-gray-300 mt-1">Use o formulário acima para adicionar o primeiro atendimento.</p>
             </div>
+          )}
+
+          {/* Save Etapa 6 */}
+          {registros.length > 0 && (
+            <button
+              type="button"
+              onClick={handleSalvarEtapa6}
+              disabled={salvando}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 transition-colors min-h-[48px] disabled:opacity-50"
+            >
+              <Save className="size-4" />
+              {salvando ? "Salvando…" : "Salvar Acompanhamento"}
+            </button>
           )}
         </div>
       )}

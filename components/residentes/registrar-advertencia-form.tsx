@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertOctagon, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { registrarAdvertencia } from "@/lib/actions/prontuario";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -38,21 +40,22 @@ export function RegistrarAdvertenciaForm({ residenteId }: { residenteId: string 
   const [motivo, setMotivo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!motivo) { toast.error("Selecione o motivo da advertência."); return; }
 
     setLoading(true);
-    // TODO: substituir por server action quando o banco estiver conectado
-    await new Promise((r) => setTimeout(r, 600));
+    const res = await registrarAdvertencia({ residenteId, tipo, motivo, descricao: descricao || undefined });
     setLoading(false);
+    if ("error" in res) { toast.error(res.error); return; }
     setOpen(false);
     setMotivo("");
     setDescricao("");
     setTipo("verbal");
     toast.success(`${TIPO_CONFIG[tipo].label} registrada com sucesso.`);
-    console.log("registrar advertencia", { residenteId, tipo, motivo, descricao });
+    router.refresh();
   }
 
   return (

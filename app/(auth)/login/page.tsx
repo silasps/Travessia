@@ -9,7 +9,13 @@ export const metadata: Metadata = {
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const params = await searchParams;
+  const errorCode = params.error;
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
 
@@ -135,7 +141,7 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <LoginForm />
+              <LoginForm errorCode={errorCode} />
             </div>
           )}
 

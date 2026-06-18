@@ -22,11 +22,11 @@ async function verificarPermissao() {
   if (!role || !["super_admin", "coordenacao"].includes(role.role)) {
     throw new Error("Sem permissão");
   }
-  return user;
+  return { ...user, staffRole: role.role };
 }
 
 export async function alterarPapelStaff(userId: string, novoPapel: StaffRole) {
-  await verificarPermissao();
+  const caller = await verificarPermissao();
 
   // super_admin é reservado à equipe de desenvolvimento — nunca atribuível por aqui
   if (!PAPEIS_ATRIBUIVEIS.includes(novoPapel)) {
@@ -51,6 +51,18 @@ export async function alterarPapelStaff(userId: string, novoPapel: StaffRole) {
     .eq("user_id", userId);
 
   if (error) return { error: error.message };
+
+  await admin.from("audit_logs").insert({
+    user_id: caller.id,
+    user_role: caller.staffRole,
+    action: "update_role",
+    entity: "staff_roles",
+    entity_id: userId,
+    entity_name: null,
+    details: { de: alvo?.role, para: novoPapel },
+    ip_address: null,
+    user_agent: null,
+  });
 
   revalidatePath("/painel/usuarios");
   return { success: true };
