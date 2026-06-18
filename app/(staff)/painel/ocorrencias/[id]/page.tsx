@@ -169,14 +169,14 @@ export default async function OcorrenciaDetailPage({ params }: { params: Promise
         </div>
       ) : null}
 
-      {podeAvaliar && <AvaliacaoForm />}
+      {podeAvaliar && <AvaliacaoForm ocorrenciaId={id} />}
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: React.ReactNode; value: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-0.5 sm:gap-4">
+    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4">
       <span className="text-xs font-medium text-muted-foreground sm:w-36 shrink-0">{label}</span>
       <span className="text-sm text-gray-900">{value}</span>
     </div>

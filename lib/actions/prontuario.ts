@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { notificarStaffPorRole } from "@/lib/actions/notificar";
 
 async function getStaffUser() {
   const supabase = await createClient();
@@ -66,6 +67,10 @@ export async function registrarAdvertencia(input: {
 
   if (error) return { error: error.message };
   await auditLog(admin, staff, "create_advertencia", "advertencias", input.residenteId, input.motivo);
+  await notificarStaffPorRole(["super_admin", "coordenacao"], "advertencia_registrada", {
+    residente_id: input.residenteId, tipo: input.tipo, motivo: input.motivo,
+    descricao: `${input.tipo} — ${input.motivo}`,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }
@@ -182,6 +187,10 @@ export async function registrarEncaminhamento(input: {
 
   if (error) return { error: error.message };
   await auditLog(admin, staff, "create_encaminhamento", "encaminhamentos", input.residenteId, input.servico);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "novo_encaminhamento", {
+    residente_id: input.residenteId, servico: input.servico,
+    descricao: input.servico,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }
@@ -240,6 +249,88 @@ export async function salvarPIA(input: {
   return { success: true };
 }
 
+// ── Alterar Status do PIA ─────────────────────────────────────────────────────
+
+export async function alterarStatusPIA(input: {
+  residenteId: string;
+  novoStatus: "rascunho" | "em_elaboracao" | "concluido" | "revisao" | "desatualizado";
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { data: pia } = await admin
+    .from("pia")
+    .select("id")
+    .eq("residente_id", input.residenteId)
+    .maybeSingle();
+
+  if (!pia) return { error: "PIA não encontrado." };
+
+  const dataRevisao = (input.novoStatus === "concluido" || input.novoStatus === "revisao")
+    ? new Date().toISOString().split("T")[0]
+    : undefined;
+
+  const { error } = await admin
+    .from("pia")
+    .update({
+      status: input.novoStatus,
+      ...(dataRevisao ? { data_revisao: dataRevisao } : {}),
+    })
+    .eq("id", pia.id);
+  if (error) return { error: error.message };
+
+  await auditLog(admin, staff, "update_pia_status", "pia", input.residenteId, `Status → ${input.novoStatus}`);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "pia_status_alterado", {
+    residente_id: input.residenteId,
+    descricao: `Status alterado para ${input.novoStatus}`,
+  }, staff.id);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Registrar Revisão do PIA ─────────────────────────────────────────────────
+
+export async function registrarRevisaoPIA(input: {
+  residenteId: string;
+  descricao: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { data: pia } = await admin
+    .from("pia")
+    .select("id")
+    .eq("residente_id", input.residenteId)
+    .maybeSingle();
+
+  if (!pia) return { error: "PIA não encontrado." };
+
+  const { error } = await admin.from("pia_registros").insert({
+    pia_id: pia.id,
+    tecnico_id: staff.id,
+    descricao: input.descricao.trim(),
+    data_registro: new Date().toISOString().split("T")[0],
+  });
+
+  if (error) return { error: error.message };
+
+  await admin.from("pia").update({
+    data_revisao: new Date().toISOString().split("T")[0],
+  }).eq("id", pia.id);
+
+  await auditLog(admin, staff, "create_pia_registro", "pia_registros", input.residenteId, input.descricao.trim());
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
 // ── Criar Ocorrência ─────────────────────────────────────────────────────────
 
 export async function criarOcorrencia(input: {
@@ -279,6 +370,81 @@ export async function criarOcorrencia(input: {
   return { success: true, id: data.id };
 }
 
+// ── Avaliar Ocorrência ───────────────────────────────────────────────────────
+
+export async function avaliarOcorrencia(input: {
+  ocorrenciaId: string;
+  decisao: "em_avaliacao" | "confirmada" | "improcedente";
+  parecer: string;
+  gerarAdvertencia?: {
+    tipo: "verbal" | "escrita" | "suspensao";
+    motivo: string;
+  };
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao"];
+  if (!PODE.includes(staff.role)) return { error: "Apenas coordenação ou superior pode avaliar." };
+
+  const admin = await createAdminClient();
+
+  const { data: oc } = await admin
+    .from("ocorrencias")
+    .select("id, residente_id, status")
+    .eq("id", input.ocorrenciaId)
+    .single();
+
+  if (!oc) return { error: "Ocorrência não encontrada." };
+  if (oc.status !== "aberta" && oc.status !== "em_avaliacao") {
+    return { error: "Esta ocorrência já foi avaliada." };
+  }
+
+  const { error } = await admin
+    .from("ocorrencias")
+    .update({
+      status: input.decisao,
+      parecer: input.parecer.trim() || null,
+      avaliado_por: staff.id,
+      data_avaliacao: new Date().toISOString().split("T")[0],
+    })
+    .eq("id", oc.id);
+
+  if (error) return { error: error.message };
+
+  // Gerar advertência vinculada se solicitado
+  if (input.gerarAdvertencia && input.decisao === "confirmada") {
+    await admin.from("advertencias").insert({
+      residente_id: oc.residente_id,
+      tipo: input.gerarAdvertencia.tipo,
+      motivo: input.gerarAdvertencia.motivo,
+      descricao: `Gerada a partir da avaliação da ocorrência.`,
+      data_aplicacao: new Date().toISOString().split("T")[0],
+      aplicado_por: staff.id,
+      reconhecido_em: null,
+    });
+
+    await auditLog(admin, staff, "create_advertencia", "advertencias", oc.residente_id, input.gerarAdvertencia.motivo);
+  }
+
+  await auditLog(admin, staff, "evaluate_ocorrencia", "ocorrencias", oc.id, `Decisão: ${input.decisao}`);
+  // Notifica quem abriu a ocorrência que ela foi avaliada
+  const { data: ocFull } = await admin.from("ocorrencias").select("aberto_por").eq("id", oc.id).single();
+  if (ocFull?.aberto_por && ocFull.aberto_por !== staff.id) {
+    const adminForNotif = await createAdminClient();
+    await adminForNotif.from("notifications").insert({
+      recipient_user_id: ocFull.aberto_por,
+      type: "ocorrencia_avaliada",
+      payload: { ocorrencia_id: oc.id, decisao: input.decisao, descricao: `Decisão: ${input.decisao}` },
+      read_at: null,
+    });
+  }
+  revalidatePath(`/painel/ocorrencias/${oc.id}`);
+  revalidatePath("/painel/ocorrencias");
+  revalidar(oc.residente_id);
+  return { success: true };
+}
+
 // ── Mudar Fase ───────────────────────────────────────────────────────────────
 
 export async function mudarFase(input: {
@@ -313,6 +479,10 @@ export async function mudarFase(input: {
   });
 
   await auditLog(admin, staff, "update_fase", "residentes", input.residenteId, `Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}`);
+  await notificarStaffPorRole(["super_admin", "coordenacao", "tecnico"], "fase_alterada", {
+    residente_id: input.residenteId,
+    descricao: `Fase ${input.novaFase} — ${FASE_NOMES[input.novaFase]}`,
+  }, staff.id);
   revalidar(input.residenteId);
   return { success: true };
 }

@@ -26,6 +26,7 @@ import { RegistrarAnotacaoForm } from "@/components/residentes/registrar-anotaca
 import { RegistrarEncaminhamentoForm } from "@/components/residentes/registrar-encaminhamento-form";
 import { SERVICO_LABELS } from "@/components/residentes/registrar-encaminhamento-form";
 import { NovaOcorrenciaModal } from "@/components/ocorrencias/nova-ocorrencia-modal";
+import { AlterarStatusPIA, RegistrarRevisaoPIA } from "@/components/residentes/pia-status-actions";
 import { formatDate, formatDateTime, formatTempoNoPrograma, maskCPF } from "@/lib/utils/format";
 
 const DEV_MODE = process.env.NEXT_PUBLIC_SUPABASE_URL === "https://placeholder.supabase.co";
@@ -118,6 +119,7 @@ export default async function ResidenteDetailPage({
   let advertencias: ReturnType<typeof getMockAdvertencias>;
   let anotacoes: ReturnType<typeof getMockAnotacoes>;
   let encaminhamentos: ReturnType<typeof getMockEncaminhamentos>;
+  let piaRegistros: { id: string; tecnico_id: string; descricao: string; data_registro: string; created_at: string }[];
 
   type FaseInfo = { numero: number; nome: string; descricao: string | null; objetivos: string[] };
   type StaffInfo = { full_name: string; cargo: string | null };
@@ -135,6 +137,7 @@ export default async function ResidenteDetailPage({
     advertencias = getMockAdvertencias(id);
     anotacoes = getMockAnotacoes(id);
     encaminhamentos = getMockEncaminhamentos(id);
+    piaRegistros = [];
     fases = MOCK_FASES;
     staffLookup = (uid) => MOCK_STAFF.find((s) => s.id === uid) ?? undefined;
   } else {
@@ -151,6 +154,7 @@ export default async function ResidenteDetailPage({
       { data: encaminhamentosData },
       { data: fasesData },
       { data: staffData },
+      { data: piaRegistrosData },
     ] = await Promise.all([
       supabase.from("documentos_residente").select("*").eq("residente_id", id).order("tipo"),
       supabase.from("marcos_evolucao").select("*").eq("residente_id", id).order("data_marco", { ascending: true }),
@@ -163,6 +167,7 @@ export default async function ResidenteDetailPage({
       supabase.from("encaminhamentos").select("*").eq("residente_id", id).order("data_encaminhamento", { ascending: false }),
       supabase.from("fases_evolucao").select("numero, nome, descricao, objetivos").order("numero"),
       supabase.from("staff_profiles").select("user_id, full_name, cargo"),
+      supabase.from("pia_registros").select("*").order("data_registro", { ascending: false }),
     ]);
     documentos = docsData ?? [];
     marcos = marcosData ?? [];
@@ -173,6 +178,11 @@ export default async function ResidenteDetailPage({
     advertencias = advertenciasData ?? [];
     anotacoes = anotacoesData ?? [];
     encaminhamentos = encaminhamentosData ?? [];
+    // pia_registros precisa filtrar pelo pia do residente
+    const piaId = piaData?.id;
+    piaRegistros = piaId
+      ? (piaRegistrosData ?? []).filter((r) => r.pia_id === piaId)
+      : [];
     fases = (fasesData ?? []) as FaseInfo[];
     const staffMap = new Map((staffData ?? []).map((s) => [s.user_id, { full_name: s.full_name, cargo: s.cargo }]));
     staffLookup = (uid) => staffMap.get(uid);
@@ -369,9 +379,10 @@ export default async function ResidenteDetailPage({
                 Histórico de marcos ({marcos.length})
               </h3>
               {marcos.length === 0 ? (
-                <p className="text-sm text-muted-foreground bg-white rounded-2xl border p-4">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                  <TrendingUp className="size-10 mx-auto mb-2 opacity-20" />
                   Nenhum marco registrado ainda.
-                </p>
+                </div>
               ) : (
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-px bg-gray-200" />
@@ -413,7 +424,8 @@ export default async function ResidenteDetailPage({
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-gray-900">Contatos familiares ({contatos.length})</h3>
               {contatos.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-100 p-4 text-sm text-muted-foreground">
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center text-sm text-muted-foreground">
+                  <Users className="size-10 mx-auto mb-2 opacity-20" />
                   Nenhum contato familiar cadastrado.
                 </div>
               ) : (
@@ -500,18 +512,36 @@ export default async function ResidenteDetailPage({
               </div>
             ) : (
               <div className="space-y-4">
-                {/* Status do PIA */}
-                <div className="flex items-center justify-between bg-white rounded-2xl border border-gray-100 p-4">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Status do PIA</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Início: {formatDate(pia.data_inicio)}
-                      {pia.data_revisao ? ` · Revisão: ${formatDate(pia.data_revisao)}` : ""}
-                    </p>
+                {/* Header do PIA — status + técnico + ações */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 space-y-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-gray-900">Plano Individual de Atendimento</p>
+                        <span className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${PIA_STATUS_CONFIG[pia.status]?.className ?? "bg-gray-100 text-gray-700"}`}>
+                          {PIA_STATUS_CONFIG[pia.status]?.label ?? pia.status}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1.5 text-xs text-muted-foreground">
+                        <span>Início: {formatDate(pia.data_inicio)}</span>
+                        {pia.data_revisao && <span>Última revisão: {formatDate(pia.data_revisao)}</span>}
+                        {pia.tecnico_id && staffLookup(pia.tecnico_id) && (
+                          <span>Técnico: <strong className="text-gray-700">{staffLookup(pia.tecnico_id)!.full_name}</strong></span>
+                        )}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/painel/residentes/${id}/pia`}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-blue-700 px-3 py-2 text-xs font-medium text-white hover:bg-blue-800 transition-colors"
+                    >
+                      <Edit className="size-3" />
+                      Editar PIA
+                    </Link>
                   </div>
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${PIA_STATUS_CONFIG[pia.status]?.className ?? "bg-gray-100 text-gray-700"}`}>
-                    {PIA_STATUS_CONFIG[pia.status]?.label ?? pia.status}
-                  </span>
+                  <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-3">
+                    <AlterarStatusPIA residenteId={id} statusAtual={pia.status} />
+                    <RegistrarRevisaoPIA residenteId={id} />
+                  </div>
                 </div>
 
                 {/* Seções do PIA */}
@@ -523,30 +553,34 @@ export default async function ResidenteDetailPage({
                   { key: "secao_plano_acao", label: "Plano de ação" },
                   { key: "secao_rede_apoio", label: "Rede de apoio" },
                 ].map(({ key, label }) => {
-                  const section = pia[key as keyof typeof pia] as Record<string, unknown>;
+                  const section = pia[key as keyof typeof pia] as Record<string, unknown> | null;
+                  if (!section || Object.keys(section).length === 0) return null;
                   return (
                     <div key={key} className="bg-white rounded-xl border border-gray-100 p-4">
                       <h3 className="text-sm font-semibold text-gray-900 mb-3">{label}</h3>
                       <div className="space-y-2">
-                        {Object.entries(section).map(([k, v]) => (
-                          <div key={k}>
-                            <p className="text-xs text-muted-foreground capitalize">
-                              {k.replace(/_/g, " ")}
-                            </p>
-                            {Array.isArray(v) ? (
-                              <ul className="mt-0.5 space-y-0.5">
-                                {v.map((item: unknown, i) => (
-                                  <li key={i} className="text-sm text-gray-800 flex items-start gap-1.5">
-                                    <span className="text-blue-600 mt-0.5">•</span>
-                                    {String(item)}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-gray-800 mt-0.5">{String(v)}</p>
-                            )}
-                          </div>
-                        ))}
+                        {Object.entries(section).map(([k, v]) => {
+                          if (!v || (typeof v === "string" && !v.trim()) || (Array.isArray(v) && v.length === 0)) return null;
+                          return (
+                            <div key={k}>
+                              <p className="text-xs text-muted-foreground capitalize">
+                                {k.replace(/_/g, " ")}
+                              </p>
+                              {Array.isArray(v) ? (
+                                <ul className="mt-0.5 space-y-0.5">
+                                  {v.map((item: unknown, i) => (
+                                    <li key={i} className="text-sm text-gray-800 flex items-start gap-1.5">
+                                      <span className="text-blue-600 mt-0.5">•</span>
+                                      {String(item)}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-gray-800 mt-0.5">{String(v)}</p>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -556,6 +590,30 @@ export default async function ResidenteDetailPage({
                   <div className="bg-blue-50 rounded-xl border border-blue-100 p-4">
                     <p className="text-xs font-medium text-blue-700 mb-1">Observações gerais</p>
                     <p className="text-sm text-blue-900">{pia.observacoes_gerais}</p>
+                  </div>
+                )}
+
+                {/* Histórico de revisões */}
+                {piaRegistros.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      Histórico de revisões ({piaRegistros.length})
+                    </h3>
+                    {piaRegistros.map((reg) => {
+                      const tecnico = staffLookup(reg.tecnico_id);
+                      return (
+                        <div key={reg.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-xs font-medium text-blue-700">
+                              {tecnico?.full_name ?? "Equipe técnica"}
+                              {tecnico?.cargo ? ` — ${tecnico.cargo}` : ""}
+                            </span>
+                            <span className="text-xs text-muted-foreground">{formatDate(reg.data_registro)}</span>
+                          </div>
+                          <p className="text-sm text-gray-800 whitespace-pre-wrap">{reg.descricao}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
