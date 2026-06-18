@@ -200,7 +200,7 @@ export async function registrarEncaminhamento(input: {
 export async function salvarPIA(input: {
   residenteId: string;
   fichaIdentificacao?: Record<string, unknown>;
-  registrosAcompanhamento?: Record<string, unknown>[];
+  registrosAcompanhamento?: object[];
 }): Promise<{ success: true } | { error: string }> {
   const staff = await getStaffUser();
   if (!staff) return { error: "Não autenticado." };
