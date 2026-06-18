@@ -251,6 +251,84 @@ export async function salvarPIA(input: {
   return { success: true };
 }
 
+// ── Alterar Status do PIA ─────────────────────────────────────────────────────
+
+export async function alterarStatusPIA(input: {
+  residenteId: string;
+  novoStatus: "rascunho" | "em_elaboracao" | "concluido" | "revisao" | "desatualizado";
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { data: pia } = await admin
+    .from("pia")
+    .select("id")
+    .eq("residente_id", input.residenteId)
+    .maybeSingle();
+
+  if (!pia) return { error: "PIA não encontrado." };
+
+  const dataRevisao = (input.novoStatus === "concluido" || input.novoStatus === "revisao")
+    ? new Date().toISOString().split("T")[0]
+    : undefined;
+
+  const { error } = await admin
+    .from("pia")
+    .update({
+      status: input.novoStatus,
+      ...(dataRevisao ? { data_revisao: dataRevisao } : {}),
+    })
+    .eq("id", pia.id);
+  if (error) return { error: error.message };
+
+  await auditLog(admin, staff, "update_pia_status", "pia", input.residenteId, `Status → ${input.novoStatus}`);
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
+// ── Registrar Revisão do PIA ─────────────────────────────────────────────────
+
+export async function registrarRevisaoPIA(input: {
+  residenteId: string;
+  descricao: string;
+}): Promise<{ success: true } | { error: string }> {
+  const staff = await getStaffUser();
+  if (!staff) return { error: "Não autenticado." };
+
+  const PODE = ["super_admin", "coordenacao", "tecnico"];
+  if (!PODE.includes(staff.role)) return { error: "Sem permissão." };
+
+  const admin = await createAdminClient();
+  const { data: pia } = await admin
+    .from("pia")
+    .select("id")
+    .eq("residente_id", input.residenteId)
+    .maybeSingle();
+
+  if (!pia) return { error: "PIA não encontrado." };
+
+  const { error } = await admin.from("pia_registros").insert({
+    pia_id: pia.id,
+    tecnico_id: staff.id,
+    descricao: input.descricao.trim(),
+    data_registro: new Date().toISOString().split("T")[0],
+  });
+
+  if (error) return { error: error.message };
+
+  await admin.from("pia").update({
+    data_revisao: new Date().toISOString().split("T")[0],
+  }).eq("id", pia.id);
+
+  await auditLog(admin, staff, "create_pia_registro", "pia_registros", input.residenteId, input.descricao.trim());
+  revalidar(input.residenteId);
+  return { success: true };
+}
+
 // ── Criar Ocorrência ─────────────────────────────────────────────────────────
 
 export async function criarOcorrencia(input: {
