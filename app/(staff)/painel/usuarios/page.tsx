@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Users, Plus } from "lucide-react";
+import { Users } from "lucide-react";
 import { MOCK_STAFF } from "@/lib/mock-data";
 import { DevAlertButton } from "@/components/shared/dev-alert-button";
 import { AlterarPapelMenu } from "@/components/usuarios/alterar-papel-menu";
+import { ConvidarStaffModal } from "@/components/usuarios/convidar-staff-modal";
 import { createClient } from "@/lib/supabase/server";
 import type { StaffRole } from "@/types/database";
 
@@ -89,13 +90,16 @@ export default async function UsuariosPage() {
             </p>
           </div>
         </div>
-        <DevAlertButton
-          message="Convidar funcionário: funcionalidade ainda não implementada."
-          className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-600 transition-colors min-h-[44px]"
-        >
-          <Plus className="size-4" />
-          Convidar funcionário
-        </DevAlertButton>
+        {DEV_MODE ? (
+          <DevAlertButton
+            message="Convidar funcionário: disponível após conexão com banco."
+            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-sky-600 transition-colors min-h-[44px]"
+          >
+            Convidar funcionário
+          </DevAlertButton>
+        ) : (
+          <ConvidarStaffModal />
+        )}
       </div>
 
       {/* Lista de funcionários */}

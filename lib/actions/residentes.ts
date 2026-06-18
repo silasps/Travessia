@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { criarDocumentosIniciais } from "@/lib/actions/documentos-residente";
 
 export interface CriarResidenteInput {
   // Identificação
@@ -132,6 +133,9 @@ export async function criarResidente(
     is_active: isActive,
     activated_at: activatedAt,
   });
+
+  // Documentos iniciais (9 tipos, todos "nao_possui")
+  await criarDocumentosIniciais(residente.id);
 
   // Audit log
   await admin.from("audit_logs").insert({
